@@ -182,7 +182,11 @@ function crud_run(array $cfg): void
                 $existing = array_merge($existing ?? [], $_POST, $data);
             } else {
                 try {
-                    if ($existing) {
+                    $saveMsg = null;
+                    if (!empty($cfg['save_override'])) {
+                        $res = $cfg['save_override']($data, $existing);
+                        $newId = (int)$res['id']; $saveMsg = $res['msg'] ?? null;
+                    } elseif ($existing) {
                         $set = implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($data)));
                         db()->prepare("UPDATE `$table` SET $set WHERE id = ?")->execute([...array_values($data), $existing['id']]);
                         foreach ($fields as $f) {
@@ -195,7 +199,7 @@ function crud_run(array $cfg): void
                         $newId = (int)db()->lastInsertId();
                     }
                     if (!empty($cfg['after_save'])) { $cfg['after_save']($newId, $data, !$existing); }
-                    flash_set('success', $cfg['singular'] . ' saved.');
+                    flash_set('success', $saveMsg ?? ($cfg['singular'] . ' saved.'));
                     redirect('admin/' . $self);
                 } catch (PDOException $ex) {
                     foreach ($uploaded as $u) { delete_upload($u); }

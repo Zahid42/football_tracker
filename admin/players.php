@@ -21,7 +21,7 @@ $fields = [
     ['name' => 'is_featured', 'label' => 'Show this player on the homepage', 'type' => 'checkbox', 'col' => 6],
     ['name' => 'is_active', 'label' => 'Active (untick to archive - hidden from the public site)', 'type' => 'checkbox', 'col' => 6, 'default' => 1],
 ];
-$teamOptions = lookup('SELECT id, name FROM teams ORDER BY name');
+$teamOptions = lookup("SELECT t.id, IF((SELECT COUNT(*) FROM teams x WHERE x.name = t.name) > 1, CONCAT(t.name, ' #', t.public_code), t.name) AS name FROM teams t ORDER BY t.name");
 $action = get_str('action', 'list');
 $id = (int)($_GET['id'] ?? 0);
 $errors = [];

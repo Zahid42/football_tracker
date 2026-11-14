@@ -121,6 +121,8 @@ function ft_codes_ensure(): void
         try { db()->query("SELECT public_code FROM $t LIMIT 1"); }
         catch (PDOException $e) { db()->exec("ALTER TABLE $t ADD COLUMN public_code CHAR(6) NULL, ADD UNIQUE KEY uq_{$t}_code (public_code)"); }
     }
+    // teams may share a name (each player can keep his own copy of a team)
+    if (db()->query("SHOW INDEX FROM teams WHERE Key_name = 'uq_team_name'")->fetch()) { db()->exec('ALTER TABLE teams DROP INDEX uq_team_name'); }
     foreach (['players', 'teams'] as $t) {   // 2) fill the gaps
         foreach (db()->query("SELECT id FROM $t WHERE public_code IS NULL")->fetchAll(PDO::FETCH_COLUMN) as $id) {
             db()->prepare("UPDATE $t SET public_code = ? WHERE id = ?")->execute([ft_new_code(), $id]);
@@ -206,4 +208,90 @@ function player_remove_team(int $pid, int $tid): array
     }
     $pdo->commit();
     return ['mine' => count($mine), 'matches_deleted' => $matchesDeleted, 'team_deleted' => $teamDeleted];
+}
+
+/* ---------------- Per-player team add / edit (copy-on-write) ---------------- */
+
+function copy_upload(?string $rel): ?string
+{
+    if (!$rel || str_contains($rel, '..')) { return null; }
+    $src = ROOT_PATH . '/' . UPLOAD_DIR_NAME . '/' . $rel;
+    if (!is_file($src)) { return null; }
+    $info = pathinfo($rel);
+    $new = ($info['dirname'] !== '.' ? $info['dirname'] . '/' : '') . $info['filename'] . '_' . bin2hex(random_bytes(3)) . (isset($info['extension']) ? '.' . $info['extension'] : '');
+    return @copy($src, ROOT_PATH . '/' . UPLOAD_DIR_NAME . '/' . $new) ? $new : null;
+}
+
+/** Other players that use a team (linked to it, or with stats in its matches). */
+function team_other_players(int $tid, int $pid): int
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM (SELECT player_id FROM player_teams WHERE team_id = :t1 AND player_id <> :p1
+        UNION SELECT s.player_id FROM match_statistics s JOIN matches m ON m.id = s.match_id WHERE m.team_id = :t2 AND s.player_id <> :p2) x');
+    $st->execute([':t1' => $tid, ':p1' => $pid, ':t2' => $tid, ':p2' => $pid]);
+    return (int)$st->fetchColumn();
+}
+
+/** Add a team to ONE player. A team with the same name is reused (and linked); nothing of it is changed for other players. */
+function player_add_team(int $pid, array $data): array
+{
+    $find = db()->prepare('SELECT * FROM teams WHERE name = ? ORDER BY id LIMIT 1');
+    $find->execute([$data['name']]);
+    $ex = $find->fetch();
+    if ($ex) {
+        $tid = (int)$ex['id'];
+        if (!empty($data['logo'])) { delete_upload($data['logo']); }   // never overwrite a shared team's details
+        $reused = true;
+    } else {
+        $data['public_code'] = ft_new_code();
+        db()->prepare('INSERT INTO teams (' . implode(', ', array_map(fn($k) => "`$k`", array_keys($data))) . ') VALUES (' . implode(',', array_fill(0, count($data), '?')) . ')')->execute(array_values($data));
+        $tid = (int)db()->lastInsertId();
+        $reused = false;
+    }
+    $has = db()->prepare('SELECT COUNT(*) FROM player_teams WHERE player_id = ? AND team_id = ?'); $has->execute([$pid, $tid]);
+    if (!(int)$has->fetchColumn()) { db()->prepare('INSERT INTO player_teams (player_id, team_id, is_current) VALUES (?, ?, 0)')->execute([$pid, $tid]); }
+    return ['id' => $tid, 'reused' => $reused];
+}
+
+/**
+ * Edit a team for ONE player. If nobody else uses it, it is edited in place. If it is shared, the player gets
+ * his own copy (new team + his links and matches move to it) and the shared team stays exactly as it was.
+ */
+function player_update_team(int $pid, array $existing, array $data): array
+{
+    $tid = (int)$existing['id'];
+    $pdo = db();
+    if (team_other_players($tid, $pid) === 0) {
+        $pdo->prepare('UPDATE teams SET ' . implode(', ', array_map(fn($k) => "`$k` = ?", array_keys($data))) . ' WHERE id = ?')->execute([...array_values($data), $tid]);
+        if (!empty($data['logo']) && !empty($existing['logo'])) { delete_upload($existing['logo']); }
+        return ['id' => $tid, 'forked' => false];
+    }
+    $pdo->beginTransaction();
+    $new = array_merge(array_diff_key($existing, ['id' => 1, 'created_at' => 1, 'public_code' => 1]), $data);
+    if (empty($data['logo'])) { $new['logo'] = copy_upload($existing['logo'] ?? null); }
+    $new['public_code'] = ft_new_code();
+    $pdo->prepare('INSERT INTO teams (' . implode(', ', array_map(fn($k) => "`$k`", array_keys($new))) . ') VALUES (' . implode(',', array_fill(0, count($new), '?')) . ')')->execute(array_values($new));
+    $nid = (int)$pdo->lastInsertId();
+    $pdo->prepare('UPDATE player_teams SET team_id = ? WHERE player_id = ? AND team_id = ?')->execute([$nid, $pid, $tid]);
+    $pdo->prepare('UPDATE players SET current_team_id = ? WHERE id = ? AND current_team_id = ?')->execute([$nid, $pid, $tid]);
+    $ms = $pdo->prepare('SELECT m.* FROM matches m JOIN match_statistics s ON s.match_id = m.id AND s.player_id = ? WHERE m.team_id = ?');
+    $ms->execute([$pid, $tid]);
+    foreach ($ms->fetchAll() as $m) {
+        $old = (int)$m['id'];
+        $others = $pdo->prepare('SELECT COUNT(*) FROM match_statistics WHERE match_id = ? AND player_id <> ?'); $others->execute([$old, $pid]);
+        if ((int)$others->fetchColumn() === 0) {
+            $pdo->prepare('UPDATE matches SET team_id = ? WHERE id = ?')->execute([$nid, $old]);
+            continue;
+        }
+        $c = array_diff_key($m, ['id' => 1, 'result' => 1, 'created_at' => 1, 'updated_at' => 1]);
+        $c['team_id'] = $nid; $c['photo'] = copy_upload($m['photo']); $c['team_photo'] = copy_upload($m['team_photo']);
+        $pdo->prepare('INSERT INTO matches (' . implode(', ', array_map(fn($k) => "`$k`", array_keys($c))) . ') VALUES (' . implode(',', array_fill(0, count($c), '?')) . ')')->execute(array_values($c));
+        $mid = (int)$pdo->lastInsertId();
+        foreach (['match_statistics', 'goals', 'assists'] as $t) {
+            $pdo->prepare("UPDATE $t SET match_id = ? WHERE match_id = ? AND player_id = ?")->execute([$mid, $old, $pid]);
+        }
+        $pdo->prepare('INSERT INTO match_squad (match_id, slot, player_name, shirt_number, position, player_id, is_captain)
+            SELECT ?, slot, player_name, shirt_number, position, CASE WHEN player_id = ? THEN player_id ELSE NULL END, is_captain FROM match_squad WHERE match_id = ?')->execute([$mid, $pid, $old]);
+    }
+    $pdo->commit();
+    return ['id' => $nid, 'forked' => true];
 }
