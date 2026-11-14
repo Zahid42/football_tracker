@@ -105,7 +105,7 @@ function pending_players(): array
 /** Homepage section / chip switches chosen by the admin (settings keys home_sections, home_chips). */
 function home_on(string $key, string $item): bool
 {
-    $defaults = ['home_sections' => 'about,teams,achievements,matches,fixtures,squads', 'home_chips' => 'foot,height,age,matches,goals,assists'];
+    $defaults = ['home_sections' => 'about,teams,achievements,fixtures,squads', 'home_chips' => 'foot,height,age,matches,goals,assists'];
     return in_array($item, explode(',', setting($key, $defaults[$key])), true);
 }
 

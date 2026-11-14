@@ -409,9 +409,9 @@ a { color: var(--accent); }
 
 /* match squads: vertical match list beside the pitch */
 .squad-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:1.25rem}
-@media(min-width:992px){.squad-layout{grid-template-columns:300px minmax(0,1fr);align-items:start}}
+@media(min-width:1200px){.squad-layout{grid-template-columns:250px minmax(0,1fr);align-items:start}}
 .squad-list{overflow-y:auto;border:1px solid var(--card-border);border-radius:16px;background:var(--card);padding:.5rem;max-height:340px;scrollbar-width:thin}
-@media(min-width:992px){.squad-list{max-height:none}}
+@media(min-width:1200px){.squad-list{max-height:none}}
 .squad-rows{gap:.4rem;flex-wrap:nowrap}
 .squad-row{display:flex!important;align-items:center;gap:.7rem;text-align:left;width:100%;padding:.6rem .7rem!important;border-radius:12px!important;color:var(--text);border:1px solid transparent;background:transparent}
 .squad-row:hover{background:rgba(127,127,127,.1)}
@@ -474,3 +474,19 @@ a.row-item:hover{border-color:var(--accent)}
 .ri-pill{font-size:.72rem;font-weight:700;padding:3px 11px;border-radius:999px;color:#fff;background:#64748b}
 .ri-pill.k-fixture,.ri-pill.k-match{background:#7c3aed}.ri-pill.k-training{background:#2563eb}.ri-pill.k-event{background:#0891b2}.ri-pill.k-reminder{background:#d97706}
 .row-month{margin:14px 0 4px;font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* ---- Match squads: horizontal pitch, three equal-height panels ---- */
+.pitch-h{aspect-ratio:7/5;background:radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.10),transparent 65%),repeating-linear-gradient(90deg,#1e8a3e 0 7.14%,#23974a 7.14% 14.28%)}
+.pitch-h .pl{width:12%;min-width:52px}
+.squad-pane{display:grid;grid-template-columns:minmax(0,1fr);gap:1.25rem}
+@media(min-width:1200px){
+  .squad-layout{grid-template-columns:250px minmax(0,1fr);align-items:start}
+  .squad-pane{grid-template-columns:minmax(0,1fr) 290px;align-items:start}
+}
+/* premium rows */
+.row-item{position:relative;overflow:hidden;padding:12px 16px 12px 18px;background:linear-gradient(135deg,var(--card),color-mix(in srgb,var(--card) 88%,var(--accent)));border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.18);transition:transform .15s,box-shadow .15s,border-color .15s}
+.row-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+.row-item:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.28);border-color:var(--accent)}
+.ri-date{min-width:56px;padding:6px 0;border-radius:12px;background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.ri-main b{font-size:1.02rem}
+.ri-pill{padding:4px 13px;letter-spacing:.04em;box-shadow:0 2px 8px rgba(0,0,0,.25)}

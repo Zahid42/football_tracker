@@ -9,7 +9,6 @@ const STAT_VIEWS = ['overall' => 'Overall', 'yearly' => 'Yearly', 'competition' 
 
 function chart_card(string $id, string $title, int $col = 6): string
 {
-    return '';   // graphs are switched off site-wide (numbers and tables only)
     return '<div class="col-12 col-lg-' . $col . '"><div class="ft-card p-3 h-100"><h3 class="section-title h6">' . e($title) . '</h3><div class="chart-box"><canvas id="' . e($id) . '"></canvas></div></div></div>';
 }
 
@@ -151,5 +150,5 @@ function render_statistics(string $view): array
             ['id' => 'cGoalTypes', 'type' => 'doughnut', 'labels' => array_column($gt, 'label'), 'datasets' => [['label' => 'Goals', 'data' => array_map('intval', array_column($gt, 'total')), 'color' => ['green', 'blue', 'amber', 'purple', 'red', '#94a3b8', '#f472b6', '#2dd4bf']]]],
         ];
     }
-    return [$h, []];
+    return [$h, $charts];
 }

@@ -116,24 +116,9 @@ $bio = trim((string)($p['bio'] ?? ''));
 <?php endif; ?>
 <?php
 $today = date('Y-m-d');
-$latest = array_slice(array_values(array_filter($matches, fn($m) => $m['match_date'] <= $today)), 0, 5);
 $fx = db()->prepare("SELECT * FROM calendar_events WHERE event_type = 'Match' AND event_date >= ? AND (player_id IS NULL OR player_id = ?) ORDER BY event_date, start_time LIMIT 5");
 $fx->execute([$today, ctx_pid()]); $fixtures = $fx->fetchAll();
 ?>
-<?php if (home_on('home_sections', 'matches')): ?>
-<!-- ============ LATEST MATCHES ============ -->
-<section class="container home-section">
-  <div class="section-head"><h2>Latest Matches</h2><a href="<?= e(purl('matches.php')) ?>">All matches <i class="bi bi-arrow-right"></i></a></div>
-  <?php if (!$latest): ?><p class="text-muted-ft">No matches yet.</p><?php else: ?>
-  <div class="row-list"><?php foreach ($latest as $m): ?>
-    <a class="row-item" href="<?= e(purl('match-details.php?id=' . (int)$m['id'])) ?>">
-      <span class="ri-date"><b><?= e(fmt_date($m['match_date'], 'd')) ?></b><small><?= e(fmt_date($m['match_date'], 'M Y')) ?></small></span>
-      <span class="ri-main"><b><?= e($m['team_name']) ?> vs <?= e($m['opponent_name']) ?></b></span>
-      <span class="ri-score"><?= (int)$m['team_score'] ?> - <?= (int)$m['opponent_score'] ?></span><?= result_badge($m['result']) ?>
-    </a><?php endforeach; ?></div>
-  <?php endif; ?>
-</section>
-<?php endif; ?>
 <?php if (home_on('home_sections', 'fixtures')): ?>
 <!-- ============ FIXTURES ============ -->
 <section class="container home-section">
@@ -166,9 +151,9 @@ $fx->execute([$today, ctx_pid()]); $fixtures = $fx->fetchAll();
   <div class="tab-content squad-content">
     <?php foreach ($matches as $i => $m): $goals = get_match_goals((int)$m['id']); $assists = get_match_assists((int)$m['id']); ?>
       <div class="tab-pane fade<?= $i === 0 ? ' show active' : '' ?>" id="sq-<?= (int)$m['id'] ?>" role="tabpanel">
-        <div class="row g-4">
-          <div class="col-md-6"><?= render_pitch($m, get_squad((int)$m['id'])) ?></div>
-          <div class="col-md-6"><div class="squad-info">
+        <div class="squad-pane">
+          <div class="squad-main"><?= render_pitch($m, get_squad((int)$m['id']), true) ?></div>
+          <div class="squad-side"><div class="squad-info">
             <?= render_scoreboard($m) ?>
             <div class="ft-card p-3 mt-3">
               <div class="row g-3">
@@ -189,8 +174,11 @@ $fx->execute([$today, ctx_pid()]); $fixtures = $fx->fetchAll();
   </div>
   <?php endif; ?>
 <script>
-(function(){var L=document.getElementById('squadList');if(!L){return;}function sync(){var p=document.querySelector('#squads .tab-pane.active .pitch');var info=document.querySelector('#squads .tab-pane.active .squad-info');if(p&&window.innerWidth>=992){L.style.height=p.offsetHeight+'px';if(info){info.style.height=p.offsetHeight+'px';}}else{L.style.height='';if(info){info.style.height='';}}}
-window.addEventListener('load',sync);window.addEventListener('resize',sync);document.querySelectorAll('.squad-row').forEach(function(b){b.addEventListener('shown.bs.tab',function(){setTimeout(sync,60)})});setTimeout(sync,100);})();
+(function(){var L=document.getElementById('squadList');if(!L){return;}
+function sync(){var pane=document.querySelector('#squads .tab-pane.active');var m=pane&&pane.querySelector('.squad-main');var inf=pane&&pane.querySelector('.squad-info');
+  if(m&&window.innerWidth>=1200){var h=m.offsetHeight;L.style.height=h+'px';if(inf){inf.style.height=h+'px';}}else{L.style.height='';if(inf){inf.style.height='';}}}
+window.addEventListener('load',sync);window.addEventListener('resize',sync);
+document.querySelectorAll('.squad-row').forEach(function(b){b.addEventListener('shown.bs.tab',function(){setTimeout(sync,60)})});setTimeout(sync,100);})();
 </script>
 </section>
 

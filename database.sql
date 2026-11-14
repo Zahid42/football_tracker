@@ -395,8 +395,8 @@ INSERT INTO `settings` (`setting_key`,`setting_value`) VALUES
 ('rating_scale_max','10'),
 ('home_show_players','1'),
 ('registration_open','1'),
-('home_sections','about,teams,achievements,matches,fixtures,squads'),
-('home_layout_v','2'),
+('home_sections','about,teams,achievements,fixtures,squads'),
+('home_layout_v','3'),
 ('home_chips','foot,height,age,matches,goals,assists'),
 ('about_text','This website is my personal football record: every match I have played, the teams I played for, my statistics, trophies and photos. Edit this text from Admin > Settings.'),
 ('contact_email','');

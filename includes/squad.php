@@ -60,7 +60,7 @@ function save_squad(int $matchId, array $rows): void
 }
 
 /** The pitch. $match needs: formation, team_name, opponent_name, team_score, opponent_score. */
-function render_pitch(array $match, array $squad): string
+function render_pitch(array $match, array $squad, bool $horizontal = false): string
 {
     $starters = [];
     $subs = [];
@@ -80,12 +80,12 @@ function render_pitch(array $match, array $squad): string
     $h .= '<div class="squad-head"><span class="sq-team">' . e($match['team_name']) . '</span>'
         . '<span class="sq-form">' . e($formation ?: 'Line-up') . '</span>'
         . '<span class="sq-vs">vs ' . e($match['opponent_name']) . ' &middot; ' . (int)$match['team_score'] . '-' . (int)$match['opponent_score'] . '</span></div>';
-    $h .= '<div class="pitch">' . pitch_svg();
+    $h .= '<div class="pitch' . ($horizontal ? ' pitch-h' : '') . '">' . pitch_svg($horizontal);
     foreach (formation_slots($formation) as $s) {
         $p = $starters[$s['slot']] ?? null;
         if (!$p) { continue; }
         $cls = 'pl' . ($isMe($p) ? ' is-me' : '') . (!empty($p['player_id']) ? ' is-reg' : '') . ($s['pos'] === 'GK' ? ' is-gk' : '');
-        $h .= '<div class="' . $cls . '" style="left:' . $s['x'] . '%;top:' . $s['y'] . '%" title="' . e($p['player_name'] . ' - ' . position_name($s['pos'])) . '">'
+        $h .= '<div class="' . $cls . '" style="left:' . ($horizontal ? 100 - $s['y'] : $s['x']) . '%;top:' . ($horizontal ? $s['x'] : $s['y']) . '%" title="' . e($p['player_name'] . ' - ' . position_name($s['pos'])) . '">'
             . '<span class="shirt">' . e($p['shirt_number'] ?? '') . ($p['is_captain'] ? '<i class="cap">C</i>' : '') . '</span>'
             . $nameHtml($p) . '<span class="ppos">' . e($s['pos']) . '</span></div>';
     }
@@ -101,8 +101,15 @@ function render_pitch(array $match, array $squad): string
     return $h . '</div>';
 }
 
-function pitch_svg(): string
+function pitch_svg(bool $horizontal = false): string
 {
+    if ($horizontal) {
+        return '<svg class="pitch-lines" viewBox="0 0 140 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".5">'
+            . '<rect x="3" y="3" width="134" height="94"/><line x1="70" y1="3" x2="70" y2="97"/><circle cx="70" cy="50" r="10"/>'
+            . '<rect x="3" y="22" width="19" height="56"/><rect x="3" y="36" width="7" height="28"/><path d="M22 40 A11 11 0 0 1 22 60"/>'
+            . '<rect x="118" y="22" width="19" height="56"/><rect x="130" y="36" width="7" height="28"/><path d="M118 40 A11 11 0 0 0 118 60"/>'
+            . '</g><g fill="rgba(255,255,255,.8)"><circle cx="70" cy="50" r=".8"/><circle cx="15" cy="50" r=".7"/><circle cx="125" cy="50" r=".7"/></g></svg>';
+    }
     return '<svg class="pitch-lines" viewBox="0 0 100 140" aria-hidden="true"><g fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".5">'
         . '<rect x="3" y="3" width="94" height="134"/><line x1="3" y1="70" x2="97" y2="70"/><circle cx="50" cy="70" r="10"/>'
         . '<rect x="22" y="3" width="56" height="19"/><rect x="36" y="3" width="28" height="7"/><path d="M40 22 A11 11 0 0 0 60 22"/>'
