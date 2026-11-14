@@ -50,6 +50,7 @@ crud_run([
         ['label' => 'Logo', 'key' => fn($r) => thumb($r['logo']), 'html' => true],
         ['label' => 'Team', 'key' => fn($r) => $r['name'] . ($r['short_name'] ? ' (' . $r['short_name'] . ')' : '')],
         ['label' => 'ID', 'key' => fn($r) => '<a class="id-chip" href="' . e(team_url_by_id((int)$r['id'])) . '" target="_blank" rel="noopener">' . e((string)$r['public_code']) . '</a>', 'html' => true],
+        ['label' => 'Profile', 'key' => fn($r) => '<a class="btn btn-sm btn-outline-theme" href="' . e(url('admin/team-squad.php?team=' . (int)$r['id'])) . '"><i class="bi bi-person-badge"></i> Squad, kits &amp; more</a>', 'html' => true],
         ['label' => 'Matches', 'key' => fn($r) => (string)db()->query('SELECT COUNT(*) FROM matches m JOIN match_statistics s ON s.match_id = m.id AND s.player_id = ' . (int)$GLOBALS['__tpid'] . ' WHERE m.team_id = ' . (int)$r['id'])->fetchColumn()],
         ['label' => 'Also used by', 'key' => fn($r) => (string)db()->query('SELECT COUNT(DISTINCT player_id) FROM player_teams WHERE team_id = ' . (int)$r['id'] . ' AND player_id <> ' . (int)$GLOBALS['__tpid'])->fetchColumn() . ' other player(s)'],
         ['label' => 'Status', 'key' => fn($r) => '<span class="badge bg-' . ($r['status'] === 'active' ? 'success' : 'secondary') . '">' . e(ucfirst($r['status'])) . '</span>', 'html' => true],

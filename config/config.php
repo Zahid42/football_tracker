@@ -65,6 +65,7 @@ require_once ROOT_PATH . '/includes/crud.php';
 require_once ROOT_PATH . '/includes/components.php';
 require_once ROOT_PATH . '/includes/stats_view.php';
 require_once ROOT_PATH . '/includes/match_form.php';
+require_once ROOT_PATH . '/includes/team_profile.php';
 
 // Make sure every player/team has its unique 6-digit public ID.
 try {
@@ -76,4 +77,5 @@ try {
         $up->execute(['home_layout_v', '3']);
     }
     ft_codes_ensure();
+    ft_team_schema_ensure();
 } catch (Throwable $e) { /* database not ready yet (e.g. installing) */ }

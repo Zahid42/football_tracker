@@ -239,3 +239,28 @@ function player_fut_card(array $p, array $o): string
     $h .= '<div class="fut-foot"><span>' . (int)$o['matches'] . ' M</span><span>' . (int)$o['goals'] . ' G</span><span>' . (int)$o['assists'] . ' A</span></div></div>';
     return $h;
 }
+
+
+/** Homepage team row: logo, name, period, current jersey, counts and a link to the team page. */
+function team_row_item(array $t): string
+{
+    $tid = (int)$t['id'];
+    $period = ($t['start_date'] ? fmt_date($t['start_date'], 'M Y') : 'Unknown') . ' - ' . ($t['end_date'] ? fmt_date($t['end_date'], 'M Y') : ($t['is_current'] ? 'Present' : '?'));
+    $logo = !empty($t['logo']) ? '<img src="' . e(upload_url($t['logo'])) . '" alt="">' : '<i class="bi bi-shield-shaded"></i>';
+    static $cnt = null;
+    if ($cnt === null) {
+        $cnt = ['sq' => [], 'ach' => []];
+        try {
+            $cnt['sq']  = db()->query('SELECT team_id, COUNT(*) FROM team_squad GROUP BY team_id')->fetchAll(PDO::FETCH_KEY_PAIR);
+            $cnt['ach'] = db()->query('SELECT team_id, COUNT(*) FROM team_achievements GROUP BY team_id')->fetchAll(PDO::FETCH_KEY_PAIR);
+        } catch (PDOException $e) { }
+    }
+    $kit = team_current_kit($tid);
+    return '<a class="row-item team-row' . ($t['is_current'] ? ' current' : '') . '" href="' . e(team_url_by_id($tid)) . '">'
+        . '<span class="tl-logo">' . $logo . '</span>'
+        . '<span class="ri-main"><b>' . e($t['name']) . ($t['is_current'] ? ' <span class="badge bg-success">Current</span>' : '') . '</b><small>' . e($period)
+        . (!empty($cnt['sq'][$tid]) ? ' &middot; ' . (int)$cnt['sq'][$tid] . ' in squad' : '') . (!empty($cnt['ach'][$tid]) ? ' &middot; ' . (int)$cnt['ach'][$tid] . ' achievements' : '') . '</small></span>'
+        . ($kit ? '<span class="jersey-mini" title="Current jersey">' . kit_visual($kit) . '</span>' : '')
+        . '<span class="tl-stats"><span><b>' . (int)$t['matches'] . '</b> M</span><span><b>' . (int)$t['goals'] . '</b> G</span><span><b>' . (int)$t['assists'] . '</b> A</span></span>'
+        . '<span class="ri-go"><i class="bi bi-chevron-right"></i></span></a>';
+}

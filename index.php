@@ -85,7 +85,7 @@ $bio = trim((string)($p['bio'] ?? ''));
 <section class="container home-section">
   <div class="section-head"><h2>Teams Played For</h2><a href="<?= e(purl('career.php')) ?>">Full career <i class="bi bi-arrow-right"></i></a></div>
   <?php if (!$teams): ?><p class="text-muted-ft">No teams yet.</p><?php else: ?>
-    <div class="timeline"><?php foreach (array_slice($teams, 0, 5) as $t) { echo team_timeline_item($t); } ?></div>
+    <div class="row-list"><?php foreach (array_slice($teams, 0, 8) as $t) { echo team_row_item($t); } ?></div>
   <?php endif; ?>
 </section>
 

@@ -44,6 +44,9 @@ function crud_collect(array $fields, array $existing = []): array
             case 'time':
                 if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v)) { $errors[] = "$label is not a valid time."; } else { $data[$n] = $v . ':00'; }
                 break;
+            case 'color':
+                if (!preg_match('/^#[0-9a-fA-F]{6}$/', $v)) { $errors[] = "$label must be a colour."; } else { $data[$n] = strtolower($v); }
+                break;
             case 'select':
                 $opts = crud_options($f);
                 $isList = array_is_list($opts);
@@ -106,6 +109,8 @@ function crud_render_fields(array $fields, array $values = []): string
                     $h .= '<input type="number" class="form-control"' . $id . ' value="' . e($val) . '"'
                         . (isset($f['min']) ? ' min="' . e($f['min']) . '"' : '') . (isset($f['max']) ? ' max="' . e($f['max']) . '"' : '')
                         . ' step="' . e($f['step'] ?? '1') . '"' . $req . '>'; break;
+                case 'color':
+                    $h .= '<input type="color" class="form-control form-control-color"' . $id . ' value="' . e($val ?: '#16a34a') . '">'; break;
                 case 'date':
                     $h .= '<input type="date" class="form-control"' . $id . ' value="' . e($val) . '"' . $req . '>'; break;
                 case 'time':

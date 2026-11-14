@@ -1,0 +1,143 @@
+<?php
+/**
+ * Team profile: current jersey, jersey archive, previous records, achievements, hall of fame, current squad (max 25).
+ * Everything is edited by the admin (admin/team-*.php).
+ */
+declare(strict_types=1);
+
+const SQUAD_MAX = 25;
+const KIT_TYPES = ['Home', 'Away', 'Third', 'Goalkeeper', 'Special'];
+
+/** Creates the team-profile tables once (so existing installs need no manual SQL). */
+function ft_team_schema_ensure(): void
+{
+    $pdo = db();
+    $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'team_profile_v'")->fetchColumn();
+    if ($v === '1') { return; }
+    $opt = ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+    $fk = fn(string $n) => "CONSTRAINT `fk_{$n}_team` FOREIGN KEY (`team_id`) REFERENCES `teams`(`id`) ON DELETE CASCADE";
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `team_kits` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `team_id` INT UNSIGNED NOT NULL, `season` VARCHAR(20) DEFAULT NULL,
+        `kit_type` VARCHAR(20) NOT NULL DEFAULT 'Home', `label` VARCHAR(100) DEFAULT NULL, `primary_color` CHAR(7) NOT NULL DEFAULT '#16a34a', `secondary_color` CHAR(7) NOT NULL DEFAULT '#ffffff',
+        `image` VARCHAR(255) DEFAULT NULL, `is_current` TINYINT(1) NOT NULL DEFAULT 0, `notes` TEXT DEFAULT NULL, PRIMARY KEY (`id`), KEY `idx_kit_team` (`team_id`), {$fk('kit')})" . $opt);
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `team_records` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `team_id` INT UNSIGNED NOT NULL, `season` VARCHAR(20) NOT NULL, `competition` VARCHAR(120) DEFAULT NULL,
+        `played` SMALLINT UNSIGNED NOT NULL DEFAULT 0, `won` SMALLINT UNSIGNED NOT NULL DEFAULT 0, `drawn` SMALLINT UNSIGNED NOT NULL DEFAULT 0, `lost` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+        `goals_for` SMALLINT UNSIGNED NOT NULL DEFAULT 0, `goals_against` SMALLINT UNSIGNED NOT NULL DEFAULT 0, `final_position` VARCHAR(30) DEFAULT NULL, `notes` TEXT DEFAULT NULL,
+        PRIMARY KEY (`id`), KEY `idx_rec_team` (`team_id`), {$fk('rec')})" . $opt);
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `team_achievements` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `team_id` INT UNSIGNED NOT NULL, `title` VARCHAR(150) NOT NULL, `year` SMALLINT UNSIGNED DEFAULT NULL,
+        `competition` VARCHAR(120) DEFAULT NULL, `achievement_type` VARCHAR(30) NOT NULL DEFAULT 'Trophy', `description` TEXT DEFAULT NULL, `image` VARCHAR(255) DEFAULT NULL,
+        PRIMARY KEY (`id`), KEY `idx_ach_team` (`team_id`), {$fk('ach')})" . $opt);
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `team_hof` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `team_id` INT UNSIGNED NOT NULL, `name` VARCHAR(100) NOT NULL, `role` VARCHAR(60) DEFAULT NULL,
+        `years_active` VARCHAR(30) DEFAULT NULL, `inducted_year` SMALLINT UNSIGNED DEFAULT NULL, `photo` VARCHAR(255) DEFAULT NULL, `description` TEXT DEFAULT NULL,
+        PRIMARY KEY (`id`), KEY `idx_hof_team` (`team_id`), {$fk('hof')})" . $opt);
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `team_squad` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `team_id` INT UNSIGNED NOT NULL, `shirt_number` TINYINT UNSIGNED DEFAULT NULL, `name` VARCHAR(100) NOT NULL,
+        `position` VARCHAR(5) DEFAULT NULL, `is_captain` TINYINT(1) NOT NULL DEFAULT 0, `photo` VARCHAR(255) DEFAULT NULL, `player_id` INT UNSIGNED DEFAULT NULL, `notes` VARCHAR(255) DEFAULT NULL,
+        PRIMARY KEY (`id`), KEY `idx_sq_team` (`team_id`), {$fk('sq')}, CONSTRAINT `fk_sq_player` FOREIGN KEY (`player_id`) REFERENCES `players`(`id`) ON DELETE SET NULL)" . $opt);
+    ft_team_seed_samples();
+    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['team_profile_v', '1']);
+}
+
+/** Example data for the first sample team, so the new sections are not empty (admin can edit or delete it). */
+function ft_team_seed_samples(): void
+{
+    $pdo = db();
+    $tid = (int)$pdo->query('SELECT id FROM teams WHERE is_sample = 1 ORDER BY id LIMIT 1')->fetchColumn();
+    if (!$tid || (int)$pdo->query('SELECT COUNT(*) FROM team_kits')->fetchColumn() > 0) { return; }
+    $ins = fn(string $sql, array $rows) => array_map(fn($r) => $pdo->prepare($sql)->execute([$tid, ...$r]), $rows);
+    $ins('INSERT INTO team_kits (team_id, season, kit_type, label, primary_color, secondary_color, is_current) VALUES (?,?,?,?,?,?,?)', [
+        ['2026/27', 'Home', 'Emerald home', '#16a34a', '#ffffff', 1], ['2026/27', 'Away', 'White away', '#f8fafc', '#16a34a', 0],
+        ['2025/26', 'Home', 'Classic green', '#15803d', '#fde047', 0], ['2024/25', 'Third', 'Midnight', '#1e293b', '#38bdf8', 0], ['2023/24', 'Home', 'Retro stripes', '#b91c1c', '#ffffff', 0]]);
+    $ins('INSERT INTO team_records (team_id, season, competition, played, won, drawn, lost, goals_for, goals_against, final_position) VALUES (?,?,?,?,?,?,?,?,?,?)', [
+        ['2025/26', 'City League', 20, 13, 4, 3, 41, 18, '1st'], ['2024/25', 'City League', 18, 9, 5, 4, 30, 22, '3rd'], ['2023/24', 'Cup', 6, 4, 1, 1, 15, 7, 'Semi-final']]);
+    $ins('INSERT INTO team_achievements (team_id, title, year, competition, achievement_type, description) VALUES (?,?,?,?,?,?)', [
+        ['League Champions', 2026, 'City League', 'Trophy', 'Unbeaten at home all season'], ['Cup Runners-up', 2025, 'Community Cup', 'Runner-up', 'Lost the final on penalties'], ['Best Attack', 2025, 'City League', 'Award', '41 goals in 20 matches']]);
+    $ins('INSERT INTO team_hof (team_id, name, role, years_active, inducted_year, description) VALUES (?,?,?,?,?,?)', [
+        ['Imran Chowdhury', 'Founding Captain', '2018-2023', 2024, 'Led the team in its first five seasons.'], ['Sabbir Khan', 'All-time top scorer', '2019-2025', 2025, '112 goals for the club.']]);
+    $ins('INSERT INTO team_squad (team_id, shirt_number, name, position, is_captain) VALUES (?,?,?,?,?)', [
+        [1, 'Rahim Uddin', 'GK', 0], [2, 'Tanvir Alam', 'RB', 0], [4, 'Shakib Hasan', 'CB', 1], [5, 'Mehedi Rana', 'CB', 0], [3, 'Arif Hossain', 'LB', 0], [6, 'Nayeem Islam', 'CDM', 0],
+        [8, 'Sohag Mia', 'CM', 0], [10, 'Faisal Ahmed', 'CAM', 0], [7, 'Jewel Rana', 'RW', 0], [9, 'Rakib Hasan', 'ST', 0], [11, 'Masud Karim', 'LW', 0]]);
+}
+
+/** The team the admin is editing (remembered in the session, ?team=ID switches it). */
+function admin_team_id(): int
+{
+    if (isset($_GET['team']) && (int)$_GET['team'] > 0) {
+        $c = db()->prepare('SELECT id FROM teams WHERE id = ?'); $c->execute([(int)$_GET['team']]);
+        if ($c->fetchColumn()) { $_SESSION['admin_team_id'] = (int)$_GET['team']; }
+    }
+    $id = (int)($_SESSION['admin_team_id'] ?? 0);
+    if ($id) { $c = db()->prepare('SELECT id FROM teams WHERE id = ?'); $c->execute([$id]); if ($c->fetchColumn()) { return $id; } }
+    $first = (int)db()->query('SELECT id FROM teams ORDER BY name LIMIT 1')->fetchColumn();
+    $_SESSION['admin_team_id'] = $first;
+    return $first;
+}
+
+const TEAM_TABS = [
+    'team-squad.php'        => ['Squad', 'bi-people'],
+    'team-kits.php'         => ['Jerseys', 'bi-tag'],
+    'team-records.php'      => ['Records', 'bi-clipboard-data'],
+    'team-achievements.php' => ['Achievements', 'bi-trophy'],
+    'team-hof.php'          => ['Hall of Fame', 'bi-stars'],
+];
+
+/** Team picker + tabs shown above every team-profile admin list. */
+function team_admin_bar(string $self): void
+{
+    $tid = admin_team_id();
+    $teams = db()->query('SELECT id, name, public_code FROM teams ORDER BY name')->fetchAll();
+    echo '<div class="ft-card p-3 mb-3"><form method="get" class="d-flex flex-wrap gap-2 align-items-center mb-2"><label class="fw-semibold mb-0"><i class="bi bi-shield"></i> Team</label>'
+       . '<select class="form-select w-auto" name="team" onchange="this.form.submit()">';
+    foreach ($teams as $t) { echo '<option value="' . (int)$t['id'] . '"' . ((int)$t['id'] === $tid ? ' selected' : '') . '>' . e($t['name']) . ' (' . e((string)$t['public_code']) . ')</option>'; }
+    echo '</select><a class="btn btn-outline-theme btn-sm" target="_blank" rel="noopener" href="' . e(team_url_by_id($tid)) . '"><i class="bi bi-eye"></i> View public page</a></form><div class="tp-tabs">';
+    foreach (TEAM_TABS as $file => [$label, $icon]) {
+        echo '<a class="tp-tab' . ($file === $self ? ' active' : '') . '" href="' . e(url('admin/' . $file)) . '"><i class="bi ' . $icon . '"></i> ' . e($label) . '</a>';
+    }
+    echo '</div></div>';
+}
+
+/** Runs a team-scoped CRUD page. $cfg is a normal crud config; team scoping, the picker bar and team_id are added here. */
+function team_admin_page(string $self, array $cfg): void
+{
+    require_login();
+    ft_team_schema_ensure();
+    $tid = admin_team_id();
+    if (!$tid) { flash_set('warning', 'Create a team first.'); redirect('admin/teams.php'); }
+    $userBefore = $cfg['before_save'] ?? null;
+    $cfg['scope'] = fn() => 't.team_id = ' . $tid;
+    $cfg['before_list'] = function () use ($self) { team_admin_bar($self); };
+    $cfg['before_save'] = function (array &$data, ?array $existing) use ($tid, $userBefore) {
+        $data['team_id'] = $existing ? (int)$existing['team_id'] : $tid;
+        return $userBefore ? $userBefore($data, $existing) : null;
+    };
+    crud_run($cfg);
+}
+
+/* ---------- jersey drawing ---------- */
+
+function jersey_svg(string $primary, string $secondary, string $number = ''): string
+{
+    $p = e($primary); $s = e($secondary);
+    return '<svg class="jersey-svg" viewBox="0 0 120 120" role="img" aria-label="Jersey"><path d="M40 8 L16 22 L4 50 L26 58 L30 46 L30 112 L90 112 L90 46 L94 58 L116 50 L104 22 L80 8 C74 18 46 18 40 8 Z" fill="' . $p . '" stroke="rgba(0,0,0,.35)" stroke-width="2" stroke-linejoin="round"/>'
+        . '<path d="M40 8 C46 18 74 18 80 8" fill="none" stroke="' . $s . '" stroke-width="4"/><path d="M4 50 L26 58 M116 50 L94 58" stroke="' . $s . '" stroke-width="5"/>'
+        . ($number !== '' ? '<text x="60" y="72" text-anchor="middle" font-size="30" font-weight="800" fill="' . $s . '" font-family="Arial,sans-serif">' . e($number) . '</text>' : '') . '</svg>';
+}
+
+/** Photo of the kit if one was uploaded, otherwise a drawn jersey in its colours. */
+function kit_visual(array $k, string $number = ''): string
+{
+    if (!empty($k['image']) && is_file(ROOT_PATH . '/' . UPLOAD_DIR_NAME . '/' . $k['image'])) {
+        return '<img class="jersey-img" src="' . e(upload_url($k['image'])) . '" alt="' . e(($k['kit_type'] ?? '') . ' kit') . '">';
+    }
+    return jersey_svg((string)($k['primary_color'] ?? '#16a34a'), (string)($k['secondary_color'] ?? '#ffffff'), $number);
+}
+
+function team_current_kit(int $tid): ?array
+{
+    static $map = null;
+    if ($map === null) {
+        $map = [];
+        try {
+            foreach (db()->query('SELECT * FROM team_kits ORDER BY is_current DESC, id DESC')->fetchAll() as $k) { $map[(int)$k['team_id']] ??= $k; }
+        } catch (PDOException $e) { /* tables not created yet */ }
+    }
+    return $map[$tid] ?? null;
+}

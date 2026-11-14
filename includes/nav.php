@@ -31,6 +31,7 @@ function admin_nav(): array
         ['label' => 'Homepage',     'href' => 'admin/homepage.php',     'icon' => 'bi-house-gear'],
         ['label' => 'Matches',      'href' => 'admin/matches.php',      'icon' => 'bi-calendar-event', 'also' => ['match-add.php', 'match-edit.php']],
         ['label' => 'Teams',        'href' => 'admin/teams.php',        'icon' => 'bi-shield'],
+        ['label' => 'Team Profile', 'href' => 'admin/team-squad.php',   'icon' => 'bi-person-badge', 'also' => ['team-kits.php', 'team-records.php', 'team-achievements.php', 'team-hof.php']],
         ['label' => 'Competitions', 'href' => 'admin/competitions.php', 'icon' => 'bi-award'],
         ['label' => 'Seasons',      'href' => 'admin/seasons.php',      'icon' => 'bi-calendar3'],
         ['label' => 'Venues',       'href' => 'admin/venues.php',       'icon' => 'bi-geo-alt'],

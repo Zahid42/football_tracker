@@ -190,7 +190,7 @@ function handle_image_upload(string $field, string $subDir): ?string
     if (@getimagesize($file['tmp_name']) === false) {
         throw new RuntimeException('File is not a valid image.');
     }
-    $allowedDirs = ['profile', 'matches', 'teams', 'gallery', 'trophies', 'competitions'];
+    $allowedDirs = ['profile', 'matches', 'teams', 'gallery', 'trophies', 'competitions', 'kits', 'team-people', 'team-awards'];
     if (!in_array($subDir, $allowedDirs, true)) {
         throw new RuntimeException('Invalid upload folder.');
     }

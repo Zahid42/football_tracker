@@ -496,3 +496,24 @@ a.row-item:hover{border-color:var(--accent)}
 .cal-cell.can-add:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg-2))}
 .cal-cell .cal-add{opacity:1;width:22px;height:22px;top:3px;right:4px;display:grid;place-items:center;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:1rem;line-height:1}
 .cal-cell .cal-add:hover{transform:scale(1.15)}
+
+/* ---- team profile ---- */
+.jersey-svg,.jersey-img{width:100%;height:100%;object-fit:contain;display:block}
+.jersey-mini{width:46px;height:46px;flex:none;display:inline-block}
+.jersey-big{width:130px;height:130px;margin:0 auto;filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
+.tl-logo-lg{width:84px;height:84px;font-size:2.4rem}
+.tp-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tp-tab{padding:6px 14px;border-radius:999px;border:1px solid var(--card-border);color:inherit;text-decoration:none;font-size:.88rem;font-weight:600;background:var(--card)}
+.tp-tab:hover,.tp-tab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.sticky-tabs{position:sticky;top:64px;z-index:5;padding:8px 0;background:var(--bg)}
+html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
+.team-row .tl-stats{display:flex;gap:12px;font-size:.85rem;color:var(--muted)}.team-row .tl-stats b{color:inherit}
+.team-row.current::before{background:#22c55e}
+.ri-go{color:var(--muted)}
+.sq-no{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--accent);color:var(--accent-ink);flex:none}
+.sq-photo{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none}
+.hof-card{text-align:center;padding:18px 14px;border-radius:18px;border:1px solid #d4a72c;background:linear-gradient(160deg,color-mix(in srgb,#f6e27a 18%,var(--card)),var(--card));height:100%}
+.hof-card img{width:92px;height:92px;border-radius:50%;object-fit:cover;border:3px solid #d4a72c}
+.hof-name{font-weight:800;margin-top:8px}.hof-role{color:#d4a72c;font-weight:700;font-size:.85rem}
+.kit-card{text-align:center;padding:12px;border:1px solid var(--card-border);border-radius:16px;background:var(--card)}
+.kit-vis{width:90px;height:90px;margin:0 auto 6px}
