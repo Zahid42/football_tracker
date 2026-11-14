@@ -20,10 +20,10 @@
   --bs-border-color: var(--card-border);
 }
 [data-theme="light"] {
-  --bg: #e4e7e6;
-  --bg-2: #d8dcda;
-  --card: #f6f7f6;
-  --card-border: #c9d0cc;
+  --bg: #d6dbd9;
+  --bg-2: #c9cfcc;
+  --card: #eceeed;
+  --card-border: #b8c0bc;
   --text: #11201a;
   --muted: #5c7367;
   --accent: #15803d;
