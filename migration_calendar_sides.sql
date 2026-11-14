@@ -1,0 +1,1 @@
+ALTER TABLE calendar_events ADD COLUMN home_team VARCHAR(100) DEFAULT NULL AFTER title, ADD COLUMN away_team VARCHAR(100) DEFAULT NULL AFTER home_team;

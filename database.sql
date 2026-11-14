@@ -360,6 +360,8 @@ CREATE TABLE `calendar_events` (
   `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `player_id`   INT UNSIGNED DEFAULT NULL,
   `title`       VARCHAR(150) NOT NULL,
+  `home_team`   VARCHAR(100) DEFAULT NULL,
+  `away_team`   VARCHAR(100) DEFAULT NULL,
   `event_type`  ENUM('Match','Training','Event','Reminder','Other') NOT NULL DEFAULT 'Event',
   `event_date`  DATE NOT NULL,
   `start_time`  TIME DEFAULT NULL,

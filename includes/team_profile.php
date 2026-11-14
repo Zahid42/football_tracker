@@ -141,3 +141,21 @@ function team_current_kit(int $tid): ?array
     }
     return $map[$tid] ?? null;
 }
+
+/** Adds the two-sides columns to calendar_events once (Match events pick two teams). */
+function ft_calendar_ensure(): void
+{
+    $pdo = db();
+    $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'calendar_sides_v'")->fetchColumn();
+    if ($v === '1') { return; }
+    $have = $pdo->query("SHOW COLUMNS FROM calendar_events LIKE 'home_team'")->fetch();
+    if (!$have) { $pdo->exec("ALTER TABLE calendar_events ADD COLUMN home_team VARCHAR(100) DEFAULT NULL AFTER title, ADD COLUMN away_team VARCHAR(100) DEFAULT NULL AFTER home_team"); }
+    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['calendar_sides_v', '1']);
+}
+
+/** All team names (managed teams + opponents) for the Match event dropdowns. */
+function calendar_team_names(): array
+{
+    $n = db()->query('SELECT name FROM teams UNION SELECT name FROM opponents ORDER BY name')->fetchAll(PDO::FETCH_COLUMN);
+    return array_values(array_unique($n));
+}

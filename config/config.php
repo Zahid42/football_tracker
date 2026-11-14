@@ -78,4 +78,5 @@ try {
     }
     ft_codes_ensure();
     ft_team_schema_ensure();
+    ft_calendar_ensure();
 } catch (Throwable $e) { /* database not ready yet (e.g. installing) */ }
