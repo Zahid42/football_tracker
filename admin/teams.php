@@ -2,28 +2,28 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../config/config.php';
 $adm = require_login();
+$pid = admin_player_id();
+$pl  = get_player($pid);
+$GLOBALS['__tpid'] = $pid;
 if (is_post() && post('op') === 'delete') {
     csrf_require();
     $tid = (int)post('id');
-    $force = post('force') === '1';
-    $n = db()->prepare('SELECT COUNT(*) FROM matches WHERE team_id = ?'); $n->execute([$tid]); $n = (int)$n->fetchColumn();
     $row = db()->prepare('SELECT * FROM teams WHERE id = ?'); $row->execute([$tid]); $row = $row->fetch();
-    if ($row && $n > 0 && !$force) {
-        flash_set('warning', $row['name'] . ' is used by ' . $n . ' match(es); nothing was deleted.');
-    } elseif ($row) {
-        db()->beginTransaction();
-        db()->prepare('DELETE FROM matches WHERE team_id = ?')->execute([$tid]);   // squad, stats, goals, assists cascade
-        db()->prepare('DELETE FROM teams WHERE id = ?')->execute([$tid]);
-        db()->commit();
-        delete_upload($row['logo']);
-        flash_set('success', 'Team deleted' . ($n ? " together with $n match(es)." : '.'));
+    if ($row) {
+        $r = player_remove_team($pid, $tid);
+        flash_set('success', $row['name'] . ' was removed from ' . ($pl['full_name'] ?? 'this player') . "'s profile"
+            . ($r['mine'] ? ' (' . $r['mine'] . ' of their match record(s) removed)' : '') . '. Other players were not affected'
+            . ($r['team_deleted'] ? '; nobody else used the team, so it was deleted completely.' : '.'));
     }
     redirect('admin/teams.php');
 }
 crud_run([
-    'force_delete' => true, 'delete_confirm' => 'Delete this team? Any matches played for it will also be deleted (with their squads, goals and assists). This cannot be undone.',
+    'force_delete' => true,
+    'delete_confirm' => 'Remove this team from ' . ($pl['full_name'] ?? 'this player') . "'s profile? Only THEIR matches, goals, assists and stats for this team are removed. Other players who share the team are not affected.",
+    'scope' => fn() => '(t.id IN (SELECT team_id FROM player_teams WHERE player_id = ' . $pid . ') OR t.id IN (SELECT m.team_id FROM matches m JOIN match_statistics s ON s.match_id = m.id WHERE s.player_id = ' . $pid . ')'
+        . ' OR (NOT EXISTS (SELECT 1 FROM player_teams x WHERE x.team_id = t.id) AND NOT EXISTS (SELECT 1 FROM matches y WHERE y.team_id = t.id)))',
     'table' => 'teams', 'title' => 'Teams', 'singular' => 'Team', 'icon' => 'bi-shield',
-    'intro' => 'Clubs and teams. Assign the teams a player played for on the Players page.',
+    'intro' => 'Teams of the player you are managing. Removing a team here only affects this player; other players who share the team keep theirs. To give a player an existing team, assign it on the Players page.',
     'search' => ['t.name', 't.short_name'], 'order' => 't.name',
     'fields' => [
         ['name' => 'name', 'label' => 'Team Name', 'required' => true, 'max' => 100],
@@ -37,7 +37,8 @@ crud_run([
         ['label' => 'Logo', 'key' => fn($r) => thumb($r['logo']), 'html' => true],
         ['label' => 'Team', 'key' => fn($r) => $r['name'] . ($r['short_name'] ? ' (' . $r['short_name'] . ')' : '')],
         ['label' => 'ID', 'key' => fn($r) => '<a class="id-chip" href="' . e(team_url_by_id((int)$r['id'])) . '" target="_blank" rel="noopener">' . e((string)$r['public_code']) . '</a>', 'html' => true],
-        ['label' => 'Matches', 'key' => fn($r) => (string)db()->query('SELECT COUNT(*) FROM matches WHERE team_id = ' . (int)$r['id'])->fetchColumn()],
+        ['label' => 'Matches', 'key' => fn($r) => (string)db()->query('SELECT COUNT(*) FROM matches m JOIN match_statistics s ON s.match_id = m.id AND s.player_id = ' . (int)$GLOBALS['__tpid'] . ' WHERE m.team_id = ' . (int)$r['id'])->fetchColumn()],
+        ['label' => 'Also used by', 'key' => fn($r) => (string)db()->query('SELECT COUNT(DISTINCT player_id) FROM player_teams WHERE team_id = ' . (int)$r['id'] . ' AND player_id <> ' . (int)$GLOBALS['__tpid'])->fetchColumn() . ' other player(s)'],
         ['label' => 'Status', 'key' => fn($r) => '<span class="badge bg-' . ($r['status'] === 'active' ? 'success' : 'secondary') . '">' . e(ucfirst($r['status'])) . '</span>', 'html' => true],
     ],
 ]);

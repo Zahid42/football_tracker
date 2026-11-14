@@ -161,3 +161,49 @@ function team_url_by_id(int $id): string
     $c = ft_code_map('teams')[$id] ?? null;
     return $c ? url((string)$c) : url('team.php?id=' . $id);
 }
+
+/* ---------------- Per-player removal (never touches other players' data) ---------------- */
+
+/** Remove ONE player's data from a match. The match itself is deleted only when no other player has stats in it. Returns true if the match was deleted. */
+function player_remove_match(int $pid, int $mid): bool
+{
+    $pdo = db();
+    foreach (['goals', 'assists', 'match_statistics'] as $t) {
+        $pdo->prepare("DELETE FROM $t WHERE match_id = ? AND player_id = ?")->execute([$mid, $pid]);
+    }
+    $pdo->prepare('UPDATE match_squad SET player_id = NULL WHERE match_id = ? AND player_id = ?')->execute([$mid, $pid]);
+    $left = $pdo->prepare('SELECT COUNT(*) FROM match_statistics WHERE match_id = ?');
+    $left->execute([$mid]);
+    if ((int)$left->fetchColumn() > 0) { return false; }
+    $row = $pdo->prepare('SELECT photo, team_photo FROM matches WHERE id = ?');
+    $row->execute([$mid]);
+    $m = $row->fetch();
+    $pdo->prepare('DELETE FROM matches WHERE id = ?')->execute([$mid]);
+    if ($m) { delete_upload($m['photo']); delete_upload($m['team_photo']); }
+    return true;
+}
+
+/** Remove a team from ONE player's profile: his link, his matches for it and his numbers. The team row is deleted only when nobody uses it any more. */
+function player_remove_team(int $pid, int $tid): array
+{
+    $pdo = db();
+    $pdo->beginTransaction();
+    $st = $pdo->prepare('SELECT m.id FROM matches m JOIN match_statistics s ON s.match_id = m.id AND s.player_id = ? WHERE m.team_id = ?');
+    $st->execute([$pid, $tid]);
+    $mine = $st->fetchAll(PDO::FETCH_COLUMN);
+    $matchesDeleted = 0;
+    foreach ($mine as $mid) { if (player_remove_match($pid, (int)$mid)) { $matchesDeleted++; } }
+    $pdo->prepare('DELETE FROM player_teams WHERE player_id = ? AND team_id = ?')->execute([$pid, $tid]);
+    $pdo->prepare('UPDATE players SET current_team_id = NULL WHERE id = ? AND current_team_id = ?')->execute([$pid, $tid]);
+    $used = $pdo->prepare('SELECT (SELECT COUNT(*) FROM player_teams WHERE team_id = ?) + (SELECT COUNT(*) FROM matches WHERE team_id = ?) + (SELECT COUNT(*) FROM players WHERE current_team_id = ?)');
+    $used->execute([$tid, $tid, $tid]);
+    $teamDeleted = false;
+    if ((int)$used->fetchColumn() === 0) {
+        $logo = $pdo->prepare('SELECT logo FROM teams WHERE id = ?'); $logo->execute([$tid]); $logo = $logo->fetchColumn();
+        $pdo->prepare('DELETE FROM teams WHERE id = ?')->execute([$tid]);
+        $teamDeleted = true;
+        if ($logo) { delete_upload($logo); }
+    }
+    $pdo->commit();
+    return ['mine' => count($mine), 'matches_deleted' => $matchesDeleted, 'team_deleted' => $teamDeleted];
+}
