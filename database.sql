@@ -65,10 +65,12 @@ CREATE TABLE `teams` (
   `founded_year` SMALLINT UNSIGNED DEFAULT NULL,
   `description` TEXT         DEFAULT NULL,
   `status`      ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  `public_code` CHAR(6)      DEFAULT NULL,
   `is_sample`   TINYINT(1)   NOT NULL DEFAULT 0,
   `created_at`  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_team_name` (`name`)
+  UNIQUE KEY `uq_team_name` (`name`),
+  UNIQUE KEY `uq_teams_code` (`public_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -110,9 +112,11 @@ CREATE TABLE `players` (
   `phone`             VARCHAR(30)  DEFAULT NULL,
   `registration_note` VARCHAR(500) DEFAULT NULL,
   `registered_at`     DATETIME     DEFAULT NULL,
+  `public_code`       CHAR(6)      DEFAULT NULL,
   `is_sample`         TINYINT(1)   NOT NULL DEFAULT 0,
   `updated_at`        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_players_code` (`public_code`),
   KEY `idx_player_status` (`approval_status`),
   KEY `idx_player_admin` (`admin_id`),
   KEY `idx_player_featured` (`is_featured`),

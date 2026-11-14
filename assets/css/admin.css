@@ -1,0 +1,46 @@
+/* Admin layout */
+:root { --sidebar-w: 260px; }
+
+.admin-sidebar {
+  background: #08110d;
+  color: #cfe3d8;
+  width: var(--sidebar-w);
+  border-right: 1px solid var(--card-border);
+  --bs-offcanvas-width: var(--sidebar-w);
+  --bs-offcanvas-bg: #08110d;
+  --bs-offcanvas-color: #cfe3d8;
+}
+@media (min-width: 992px) {
+  .admin-sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 1020;
+    display: flex; flex-direction: column;
+  }
+  .admin-main { margin-left: var(--sidebar-w); }
+}
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.2rem; border-bottom: 1px solid #16261e; }
+.sidebar-head .brand, .admin-topbar .brand {
+  color: #fff; text-decoration: none; font-weight: 800; font-size: 1.4rem; text-transform: uppercase;
+}
+.sidebar-head .brand i, .admin-topbar .brand i { color: var(--accent); }
+.sidebar-nav { flex: 1; overflow-y: auto; padding: .75rem .75rem 1rem; }
+.sidebar-heading { text-transform: uppercase; font-size: .68rem; letter-spacing: .14em; color: #5f7a6b; padding: 1rem .75rem .3rem; }
+.sidebar-link {
+  display: flex; align-items: center; gap: .7rem; padding: .55rem .75rem; border-radius: 9px;
+  color: #cfe3d8; text-decoration: none; font-size: .95rem; background: none; border: 0; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.sidebar-link i { font-size: 1.05rem; width: 1.2rem; text-align: center; }
+.sidebar-link:hover { background: #12231a; color: #fff; }
+.sidebar-link.active { background: rgba(34,197,94,.16); color: var(--accent); font-weight: 600; }
+.sidebar-link.disabled { opacity: .45; cursor: not-allowed; }
+.sidebar-link.disabled:hover { background: none; color: #cfe3d8; }
+.sidebar-link .soon { margin-left: auto; font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; border: 1px solid #2a4538; border-radius: 6px; padding: 0 .35rem; }
+.sidebar-link.logout:hover { background: rgba(239,68,68,.14); color: #f87171; }
+.sidebar-foot { padding: .9rem 1.2rem; border-top: 1px solid #16261e; font-size: .85rem; color: #8fa89b; }
+
+.admin-topbar {
+  position: sticky; top: 0; z-index: 1010; display: flex; align-items: center; justify-content: space-between;
+  padding: .6rem 1rem; background: #08110d; border-bottom: 1px solid var(--card-border);
+}
+.admin-content { padding: 1.5rem 1.25rem 3rem; max-width: 1500px; }
+@media (min-width: 992px) { .admin-content { padding: 1.5rem 2rem 3rem; } }

@@ -34,3 +34,10 @@ Sample data is marked `is_sample = 1`; delete it with the SQL at the bottom of `
 - Existing install with your own data: run `migration_defense_calendar.sql` in phpMyAdmin > SQL (database `football_tracker`). Do NOT re-import `database.sql` (it wipes data). Fresh install: just import `database.sql`.
 - Match form > Player performances now has Tkl / Int / Clr / Blk / Rec columns (tackles, interceptions, clearances, blocks, recoveries). Totals show on Statistics as "Defensive Contributions".
 - Admin > Calendar: add/edit/delete training, fixtures, events and reminders (click "+" on a day). They show on the public Calendar page.
+
+## 6-digit public IDs
+Every player and team gets a unique 6-digit ID, shown in the admin lists and on their pages. Their page is
+`http://localhost/football_tracker/123456`. This uses the included `.htaccess` (needs Apache `mod_rewrite`, enabled by default in XAMPP).
+If a 6-digit link gives "Not Found", open `C:\xampp\apache\conf\httpd.conf`, make sure `LoadModule rewrite_module` is not commented out and that
+`AllowOverride All` is set for `htdocs`, then restart Apache. The ID columns are added automatically on first page load
+(or run `migration_public_ids.sql` once).

@@ -1,0 +1,3 @@
+# Pretty links: http://localhost/football_tracker/482913  ->  player or team page
+RewriteEngine On
+RewriteRule ^([0-9]{6})/?$ go.php?c=$1 [L,QSA]

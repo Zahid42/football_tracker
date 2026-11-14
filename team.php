@@ -14,7 +14,7 @@ $m->execute([$t['id']]); $ms = $m->fetchAll();
   <a class="btn btn-outline-theme btn-sm mb-3" href="<?= e(url('index.php')) ?>"><i class="bi bi-arrow-left"></i> Home</a>
   <div class="ft-card p-4 mb-4 d-flex gap-3 align-items-center">
     <div class="tl-logo"><?= !empty($t['logo']) ? '<img src="' . e(upload_url($t['logo'])) . '" alt="">' : '<i class="bi bi-shield-shaded"></i>' ?></div>
-    <div><h1 class="h3 mb-0"><?= e($t['name']) ?></h1><div class="text-muted-ft"><?= $t['founded_year'] ? 'Founded ' . (int)$t['founded_year'] : '' ?></div>
+    <div><h1 class="h3 mb-0"><?= e($t['name']) ?></h1><div class="text-muted-ft"><?= $t['founded_year'] ? 'Founded ' . (int)$t['founded_year'] . ' &middot; ' : '' ?><span class="id-chip" data-copy="<?= e(url((string)$t['public_code'])) ?>" title="Click to copy this team's link"><i class="bi bi-link-45deg"></i> ID <?= e($t['public_code']) ?></span></div>
     <?php if ($t['description']): ?><p class="mb-0 mt-2"><?= e($t['description']) ?></p><?php endif; ?></div>
   </div>
   <div class="section-head"><h2>Players</h2></div>

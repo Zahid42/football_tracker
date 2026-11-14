@@ -1,0 +1,7 @@
+# Private / local-only
+config/database.php
+
+# Real uploads (photos etc.) stay on your PC; only the sample files and index.html guards are tracked
+uploads/*/*
+!uploads/*/index.html
+!uploads/*/sample_*

@@ -24,22 +24,13 @@ $charts = [
 $bio = trim((string)($p['bio'] ?? ''));
 ?>
 <?php
-$tabTeams = db()->query("SELECT t.id, t.name, t.logo FROM teams t WHERE t.status='active' ORDER BY t.name")->fetchAll();
 ?>
 <div class="switch-bar"><div class="container">
-  <div class="sw-tabs" role="tablist">
-    <button class="sw-tab active" data-sw="players" type="button"><i class="bi bi-person"></i> Players</button>
-    <button class="sw-tab" data-sw="teams" type="button"><i class="bi bi-shield"></i> Teams</button>
-  </div>
-  <div class="sw-list" id="sw-players">
-    <?php foreach ($allPlayers as $pl): ?><a class="sw-chip<?= (int)$pl['id'] === ctx_pid() ? ' on' : '' ?>" href="<?= e(url('index.php' . ((int)$pl['id'] === featured_player_id() ? '' : '?player=' . (int)$pl['id']))) ?>"><img src="<?= e(upload_url($pl['photo'] ?? null)) ?>" alt=""><?= e(player_short_name($pl)) ?></a><?php endforeach; ?>
-  </div>
-  <div class="sw-list d-none" id="sw-teams">
-    <?php foreach ($tabTeams as $tm): ?><a class="sw-chip" href="<?= e(url('team.php?id=' . (int)$tm['id'])) ?>"><?= !empty($tm['logo']) ? '<img src="' . e(upload_url($tm['logo'])) . '" alt="">' : '<i class="bi bi-shield-shaded"></i>' ?><?= e($tm['name']) ?></a><?php endforeach; ?>
-    <?php if (!$tabTeams): ?><span class="text-muted-ft small">No teams yet.</span><?php endif; ?>
+  <div class="sw-tabs">
+    <a class="sw-tab active" href="<?= e(url('players.php')) ?>"><i class="bi bi-person"></i> Players</a>
+    <a class="sw-tab" href="<?= e(url('teams.php')) ?>"><i class="bi bi-shield"></i> Teams</a>
   </div>
 </div></div>
-<script>document.querySelectorAll('.sw-tab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.sw-tab').forEach(function(x){x.classList.toggle('active',x===b)});['players','teams'].forEach(function(k){document.getElementById('sw-'+k).classList.toggle('d-none',k!==b.dataset.sw)})})});</script>
 <?php if (!$isFeatured): ?>
 <div class="container pt-3"><div class="alert alert-info py-2 mb-0 d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-person"></i> You are viewing <b><?= e($p['full_name']) ?></b>.</span><a class="btn btn-sm btn-outline-theme" href="<?= e(url('index.php')) ?>">Back to homepage player</a></div></div>
 <?php endif; ?>
