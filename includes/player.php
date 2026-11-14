@@ -295,3 +295,72 @@ function player_update_team(int $pid, array $existing, array $data): array
     $pdo->commit();
     return ['id' => $nid, 'forked' => true];
 }
+
+
+/* ---------------- Player list filters (public players page + admin Players) ---------------- */
+
+function player_filter_input(): array
+{
+    $pos = (string)($_GET['pos'] ?? '');
+    $sort = (string)($_GET['sort'] ?? '');
+    $status = (string)($_GET['status'] ?? '');
+    return [
+        'q'      => trim((string)($_GET['q'] ?? '')),
+        'team'   => max(0, (int)($_GET['team'] ?? 0)),
+        'pos'    => in_array($pos, POSITIONS, true) ? $pos : '',
+        'sort'   => in_array($sort, ['name', 'rating', 'goals', 'assists', 'matches', 'number'], true) ? $sort : '',
+        'status' => in_array($status, ['active', 'archived', 'featured'], true) ? $status : '',
+    ];
+}
+
+function player_filter_active(array $f): bool { return $f['q'] !== '' || $f['team'] || $f['pos'] !== '' || $f['sort'] !== '' || $f['status'] !== ''; }
+
+/** Approved players matching the filters; each row gets a 'stats' entry. Admin sees archived players too. */
+function players_filtered(array $f, bool $admin): array
+{
+    $w = ["p.approval_status = 'approved'"]; $a = [];
+    if (!$admin) { $w[] = 'p.is_active = 1'; }
+    if ($f['q'] !== '') {
+        $digits = preg_replace('/\D/', '', ltrim($f['q'], '#'));
+        $w[] = '(p.full_name LIKE ? OR p.nickname LIKE ?' . ($digits !== '' ? ' OR p.public_code LIKE ?' : '') . ')';
+        array_push($a, '%' . $f['q'] . '%', '%' . $f['q'] . '%');
+        if ($digits !== '') { $a[] = '%' . $digits . '%'; }
+    }
+    if ($f['team']) { $w[] = '(p.current_team_id = ? OR EXISTS (SELECT 1 FROM player_teams pt WHERE pt.player_id = p.id AND pt.team_id = ?))'; array_push($a, $f['team'], $f['team']); }
+    if ($f['pos'] !== '') { $w[] = '(p.preferred_position = ? OR p.secondary_position = ?)'; array_push($a, $f['pos'], $f['pos']); }
+    if ($admin) {
+        if ($f['status'] === 'active') { $w[] = 'p.is_active = 1'; }
+        if ($f['status'] === 'archived') { $w[] = 'p.is_active = 0'; }
+        if ($f['status'] === 'featured') { $w[] = 'p.is_featured = 1'; }
+    }
+    $st = db()->prepare('SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON t.id = p.current_team_id WHERE ' . implode(' AND ', $w)
+        . ' ORDER BY p.is_featured DESC, p.full_name');
+    $st->execute($a);
+    $rows = $st->fetchAll();
+    foreach ($rows as &$r) { $r['stats'] = with_player((int)$r['id'], fn() => get_overall_stats()); }
+    unset($r);
+    $key = ['rating' => 'avg_rating', 'goals' => 'goals', 'assists' => 'assists', 'matches' => 'matches'][$f['sort']] ?? null;
+    if ($key) { usort($rows, fn($x, $y) => ($y['stats'][$key] ?? 0) <=> ($x['stats'][$key] ?? 0)); }
+    elseif ($f['sort'] === 'name') { usort($rows, fn($x, $y) => strcasecmp($x['full_name'], $y['full_name'])); }
+    elseif ($f['sort'] === 'number') { usort($rows, fn($x, $y) => ($x['jersey_number'] ?? 999) <=> ($y['jersey_number'] ?? 999)); }
+    return $rows;
+}
+
+/** The filter bar (GET form). $admin adds the status filter. */
+function player_filter_bar(array $f, bool $admin, array $keep = []): string
+{
+    $teams = db()->query("SELECT t.id, IF((SELECT COUNT(*) FROM teams x WHERE x.name = t.name) > 1, CONCAT(t.name, ' #', t.public_code), t.name) AS name
+        FROM teams t WHERE EXISTS (SELECT 1 FROM player_teams pt JOIN players p ON p.id = pt.player_id WHERE pt.team_id = t.id AND p.approval_status = 'approved'" . ($admin ? '' : ' AND p.is_active = 1') . ') ORDER BY t.name')->fetchAll();
+    $sel = fn(string $name, array $opts, $cur, string $all) => '<select class="form-select" name="' . $name . '" onchange="this.form.submit()"><option value="">' . e($all) . '</option>'
+        . implode('', array_map(fn($k, $v) => '<option value="' . e((string)$k) . '"' . ((string)$cur === (string)$k && $cur !== '' && $cur !== 0 ? ' selected' : '') . '>' . e($v) . '</option>', array_keys($opts), $opts)) . '</select>';
+    $h = '<form method="get" class="pf-bar" role="search">';
+    foreach ($keep as $k => $v) { $h .= '<input type="hidden" name="' . e($k) . '" value="' . e($v) . '">'; }
+    $h .= '<div class="pf-search"><i class="bi bi-search"></i><input type="search" name="q" value="' . e($f['q']) . '" placeholder="Search name, nickname or player ID" autocomplete="off"></div>'
+        . $sel('team', array_column($teams, 'name', 'id'), $f['team'], 'All teams')
+        . $sel('pos', POSITION_NAMES, $f['pos'], 'All positions');
+    if ($admin) { $h .= $sel('status', ['active' => 'Active', 'archived' => 'Archived', 'featured' => 'On homepage'], $f['status'], 'Any status'); }
+    $h .= $sel('sort', ['name' => 'Name A-Z', 'rating' => 'Best rated', 'goals' => 'Most goals', 'assists' => 'Most assists', 'matches' => 'Most matches', 'number' => 'Jersey number'], $f['sort'], 'Sort: default');
+    $h .= '<button class="btn btn-accent" type="submit"><i class="bi bi-funnel"></i> Filter</button>';
+    if (player_filter_active($f)) { $h .= '<a class="btn btn-outline-theme" href="' . e(strtok($_SERVER['REQUEST_URI'], '?')) . ($keep ? '?' . http_build_query($keep) : '') . '">Clear</a>'; }
+    return $h . '</form>';
+}

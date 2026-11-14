@@ -194,7 +194,8 @@ if ($action === 'new' || $action === 'edit'):
 <?php endforeach; ?>
 </div>
 <?php else:
-    $players = players_list(false);
+    $f = player_filter_input();
+    $players = players_filtered($f, true);
     $current = ctx_pid();
 ?>
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -203,9 +204,12 @@ if ($action === 'new' || $action === 'edit'):
   <a class="btn btn-accent" href="<?= e(url('admin/' . $self . '?action=new')) ?>"><i class="bi bi-plus-lg"></i> Add Player</a>
 </div>
 <?php if ($np = count(pending_players())): ?><div class="alert alert-warning d-flex justify-content-between align-items-center"><span><i class="bi bi-person-exclamation"></i> <b><?= $np ?></b> registration<?= $np > 1 ? 's' : '' ?> waiting for approval.</span><a class="btn btn-sm btn-accent" href="<?= e(url('admin/' . $self . '?view=pending')) ?>">Review</a></div><?php endif; ?>
+<?= player_filter_bar($f, true) ?>
+<div class="text-muted-ft small mb-2"><?= count($players) ?> player<?= count($players) === 1 ? '' : 's' ?><?= player_filter_active($f) ? ' found' : '' ?></div>
+<?php if (!$players): ?><div class="ft-card p-4 text-center text-muted-ft">No player matches these filters.</div><?php endif; ?>
 <div class="pl-list">
 <?php foreach ($players as $p):
-    $s = with_player((int)$p['id'], fn() => get_overall_stats()); ?>
+    $s = $p['stats']; ?>
   <div class="pl-row<?= $p['is_featured'] ? ' featured' : '' ?><?= (int)$p['id'] === $current ? ' managing' : '' ?>">
     <img class="pl-photo" src="<?= e(upload_url($p['photo'])) ?>" alt="">
     <div class="pl-main">
