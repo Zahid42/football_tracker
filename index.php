@@ -15,12 +15,6 @@ $matches  = search_matches(match_filters([]), 10);
 $gallery  = db()->query('SELECT * FROM gallery WHERE player_id IS NULL OR player_id = ' . ctx_pid() . ' ORDER BY photo_date DESC, id DESC LIMIT 6')->fetchAll();
 $allPlayers = players_list();
 $isFeatured = ctx_pid() === featured_player_id();
-$years    = get_grouped_stats('year');
-$charts = [
-    ['id' => 'cResults', 'type' => 'doughnut', 'labels' => ['Wins', 'Draws', 'Losses'], 'datasets' => [['label' => 'Results', 'data' => [$o['wins'], $o['draws'], $o['losses']], 'color' => ['green', 'amber', 'red']]]],
-    ['id' => 'cGA', 'type' => 'bar', 'labels' => array_column($years, 'label'), 'datasets' => [['label' => 'Goals', 'data' => array_column($years, 'goals'), 'color' => 'green'], ['label' => 'Assists', 'data' => array_column($years, 'assists'), 'color' => 'blue']]],
-    ['id' => 'cRating', 'type' => 'line', 'labels' => array_column($years, 'label'), 'legend' => false, 'yMax' => 10, 'datasets' => [['label' => 'Avg rating', 'data' => array_map(fn($r) => $r['avg_rating'] !== null ? (float)$r['avg_rating'] : null, $years), 'color' => 'amber']]],
-];
 $bio = trim((string)($p['bio'] ?? ''));
 ?>
 <?php
@@ -76,13 +70,12 @@ $bio = trim((string)($p['bio'] ?? ''));
 </div>
 
 <?php if (home_on('home_sections', 'numbers')): ?>
-<!-- ============ CHARTS ============ -->
+<!-- ============ CAREER NUMBERS ============ -->
 <section class="container home-section">
   <div class="section-head"><h2>Career in Numbers</h2><a href="<?= e(purl('statistics.php')) ?>">All statistics <i class="bi bi-arrow-right"></i></a></div>
   <div class="row g-3 mb-3"><?php foreach ([['Matches', $o['matches'], 'bi-calendar-event', 'c-blue'], ['Goals', $o['goals'], 'bi-bullseye', 'c-green'], ['Assists', $o['assists'], 'bi-arrow-left-right', 'c-blue'], ['Minutes Played', number_format($o['minutes']), 'bi-stopwatch', 'c-purple'],
       ['Yellow Cards', $o['yellow'], 'bi-square-fill', 'c-amber'], ['Red Cards', $o['red'], 'bi-square-fill', 'c-red'], ['Goals / Match', fmt_num($o['goals_per_match'], 2), 'bi-graph-up', 'c-green'], ['Assists / Match', fmt_num($o['assists_per_match'], 2), 'bi-graph-up-arrow', 'c-blue']] as [$l, $v, $i, $c]): ?>
     <div class="col-6 col-md-3"><?= stat_card($l, $v, $i, $c) ?></div><?php endforeach; ?></div>
-  <div class="row g-3"><?= chart_card('cResults', 'Wins / Draws / Losses', 4) . chart_card('cGA', 'Goals & assists by year', 4) . chart_card('cRating', 'Average rating by year', 4) ?></div>
 </section>
 
 <?php endif; ?>
@@ -120,6 +113,40 @@ $bio = trim((string)($p['bio'] ?? ''));
   <?php endif; ?>
 </section>
 
+<?php endif; ?>
+<?php
+$today = date('Y-m-d');
+$latest = array_slice(array_values(array_filter($matches, fn($m) => $m['match_date'] <= $today)), 0, 5);
+$fx = db()->prepare("SELECT * FROM calendar_events WHERE event_type = 'Match' AND event_date >= ? AND (player_id IS NULL OR player_id = ?) ORDER BY event_date, start_time LIMIT 5");
+$fx->execute([$today, ctx_pid()]); $fixtures = $fx->fetchAll();
+?>
+<?php if (home_on('home_sections', 'matches')): ?>
+<!-- ============ LATEST MATCHES ============ -->
+<section class="container home-section">
+  <div class="section-head"><h2>Latest Matches</h2><a href="<?= e(purl('matches.php')) ?>">All matches <i class="bi bi-arrow-right"></i></a></div>
+  <?php if (!$latest): ?><p class="text-muted-ft">No matches yet.</p><?php else: ?>
+  <div class="row-list"><?php foreach ($latest as $m): ?>
+    <a class="row-item" href="<?= e(purl('match-details.php?id=' . (int)$m['id'])) ?>">
+      <span class="ri-date"><b><?= e(fmt_date($m['match_date'], 'd')) ?></b><small><?= e(fmt_date($m['match_date'], 'M Y')) ?></small></span>
+      <span class="ri-main"><b><?= e($m['team_name']) ?> vs <?= e($m['opponent_name']) ?></b></span>
+      <span class="ri-score"><?= (int)$m['team_score'] ?> - <?= (int)$m['opponent_score'] ?></span><?= result_badge($m['result']) ?>
+    </a><?php endforeach; ?></div>
+  <?php endif; ?>
+</section>
+<?php endif; ?>
+<?php if (home_on('home_sections', 'fixtures')): ?>
+<!-- ============ FIXTURES ============ -->
+<section class="container home-section">
+  <div class="section-head"><h2>Fixtures</h2><a href="<?= e(url('calendar.php')) ?>">Calendar <i class="bi bi-arrow-right"></i></a></div>
+  <?php if (!$fixtures): ?><p class="text-muted-ft">No upcoming fixtures. The admin adds them in Admin &rarr; Calendar (type &ldquo;Match&rdquo;).</p><?php else: ?>
+  <div class="row-list"><?php foreach ($fixtures as $f): ?>
+    <div class="row-item">
+      <span class="ri-date"><b><?= e(fmt_date($f['event_date'], 'd')) ?></b><small><?= e(fmt_date($f['event_date'], 'M Y')) ?></small></span>
+      <span class="ri-main"><b><?= e($f['title']) ?></b><small><?= $f['start_time'] ? '<i class="bi bi-clock"></i> ' . e(substr((string)$f['start_time'], 0, 5)) . ' ' : '' ?><?= $f['location'] ? '<i class="bi bi-geo-alt"></i> ' . e($f['location']) : '' ?></small></span>
+      <span class="ri-pill k-match">Fixture</span>
+    </div><?php endforeach; ?></div>
+  <?php endif; ?>
+</section>
 <?php endif; ?>
 <?php if (home_on('home_sections', 'squads')): ?>
 <!-- ============ MATCH SQUADS ============ -->
@@ -183,5 +210,4 @@ window.addEventListener('load',sync);window.addEventListener('resize',sync);docu
 </section>
 <?php endif; ?>
 <?php
-$extraScripts = chart_scripts(['charts' => $charts], 'charts.js');
 require __DIR__ . '/includes/footer.php';

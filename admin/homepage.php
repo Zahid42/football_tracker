@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../config/config.php';
 require_login();
-$sections = ['about' => 'About the Player', 'teams' => 'Teams Played For', 'achievements' => 'Achievements / trophies', 'squads' => 'Match squads (pitch view)', 'numbers' => 'Career in numbers (charts)', 'gallery' => 'Gallery strip', 'players' => 'Our Players grid'];
+$sections = ['about' => 'About the Player', 'teams' => 'Teams Played For', 'achievements' => 'Achievements / trophies', 'matches' => 'Latest matches (rows)', 'fixtures' => 'Fixtures (from Calendar)', 'squads' => 'Match squads (pitch view)', 'numbers' => 'Career in numbers (cards)', 'gallery' => 'Gallery strip', 'players' => 'Our Players grid'];
 $chips = ['foot' => 'Strong foot', 'height' => 'Height', 'age' => 'Age', 'matches' => 'Matches', 'goals' => 'Goals', 'assists' => 'Assists'];
 if (is_post()) {
     csrf_require();

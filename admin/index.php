@@ -64,28 +64,6 @@ $cards = [
 </div>
 
 <div class="row g-3 mb-4">
-  <!-- Charts -->
-  <div class="col-lg-4">
-    <div class="ft-card p-3 h-100">
-      <h2 class="section-title h6">Results</h2>
-      <div class="chart-box"><canvas id="chartResults"></canvas></div>
-    </div>
-  </div>
-  <div class="col-lg-4">
-    <div class="ft-card p-3 h-100">
-      <h2 class="section-title h6">Goals &amp; Assists by Season</h2>
-      <div class="chart-box"><canvas id="chartSeasons"></canvas></div>
-    </div>
-  </div>
-  <div class="col-lg-4">
-    <div class="ft-card p-3 h-100">
-      <h2 class="section-title h6">Rating - Last 10 Matches</h2>
-      <div class="chart-box"><canvas id="chartRating"></canvas></div>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3 mb-4">
   <!-- Recent matches -->
   <div class="col-xl-8">
     <div class="ft-card p-3 h-100">
@@ -140,7 +118,4 @@ $cards = [
 </div>
 
 <?php
-$json = json_encode($chartData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-$extraScripts = '<script>window.DASH = ' . $json . ';</script>'
-              . '<script src="' . e(url('assets/js/dashboard.js')) . '"></script>';
 require __DIR__ . '/../includes/admin_footer.php';

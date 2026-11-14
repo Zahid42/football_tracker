@@ -67,4 +67,13 @@ require_once ROOT_PATH . '/includes/stats_view.php';
 require_once ROOT_PATH . '/includes/match_form.php';
 
 // Make sure every player/team has its unique 6-digit public ID.
-try { ft_codes_ensure(); } catch (Throwable $e) { /* database not ready yet (e.g. installing) */ }
+try {
+    // one-time: new homepage layout (player details, teams, achievements, latest matches, fixtures, squads)
+    $lv = db()->query("SELECT setting_value FROM settings WHERE setting_key = 'home_layout_v'")->fetchColumn();
+    if ($lv !== '2') {
+        $up = db()->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
+        $up->execute(['home_sections', 'about,teams,achievements,matches,fixtures,squads']);
+        $up->execute(['home_layout_v', '2']);
+    }
+    ft_codes_ensure();
+} catch (Throwable $e) { /* database not ready yet (e.g. installing) */ }
