@@ -183,13 +183,6 @@ document.querySelectorAll('.squad-row').forEach(function(b){b.addEventListener('
 </section>
 
 <?php endif; ?>
-<!-- ============ OUR PLAYERS ============ -->
-<?php if (setting('home_show_players', '1') === '1' && home_on('home_sections', 'players') && count($allPlayers) > 1): ?>
-<section class="container home-section">
-  <div class="section-head"><h2>Our Players</h2><a href="<?= e(url('players.php')) ?>">All players <i class="bi bi-arrow-right"></i></a></div>
-  <div class="row g-3"><?php foreach (array_slice($allPlayers, 0, 8) as $pl): ?><div class="col-6 col-md-4 col-xl-3"><?= player_card($pl, with_player((int)$pl['id'], fn() => get_overall_stats())) ?></div><?php endforeach; ?></div>
-</section>
-<?php endif; ?>
 <!-- ============ GALLERY ============ -->
 <?php if ($gallery && home_on('home_sections', 'gallery')): ?>
 <section class="container home-section">

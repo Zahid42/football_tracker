@@ -490,3 +490,9 @@ a.row-item:hover{border-color:var(--accent)}
 .ri-date{min-width:56px;padding:6px 0;border-radius:12px;background:color-mix(in srgb,var(--accent) 14%,transparent)}
 .ri-main b{font-size:1.02rem}
 .ri-pill{padding:4px 13px;letter-spacing:.04em;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+
+/* admin calendar: visible add-event buttons */
+.cal-cell.can-add{cursor:pointer;transition:background .15s,border-color .15s}
+.cal-cell.can-add:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg-2))}
+.cal-cell .cal-add{opacity:1;width:22px;height:22px;top:3px;right:4px;display:grid;place-items:center;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:1rem;line-height:1}
+.cal-cell .cal-add:hover{transform:scale(1.15)}

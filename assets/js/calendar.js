@@ -25,7 +25,7 @@
     for (var day = 1; day <= total; day++) {
       var key = cur.getFullYear() + '-' + pad(cur.getMonth() + 1) + '-' + pad(day);
       var isToday = key === now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
-      html += '<div class="cal-cell' + (isToday ? ' today' : '') + '"><span class="cal-day">' + day + '</span>' + (CH.addUrl ? '<a class="cal-add" href="' + esc(CH.addUrl + key) + '" title="Add event" aria-label="Add event on ' + key + '">+</a>' : '');
+      html += '<div class="cal-cell' + (isToday ? ' today' : '') + (CH.addUrl ? ' can-add' : '') + '" data-date="' + key + '"><span class="cal-day">' + day + '</span>' + (CH.addUrl ? '<a class="cal-add" href="' + esc(CH.addUrl + key) + '" title="Add event" aria-label="Add event on ' + key + '">+</a>' : '');
       (byDate[key] || []).forEach(function (e) {
         var c = e.kind ? 'kind-' + e.kind.toLowerCase() : 'result-' + ({ W: 'win', D: 'draw', L: 'loss' }[e.result] || 'draw');
         var tip = e.tip || e.title;
@@ -34,6 +34,13 @@
       html += '</div>';
     }
     grid.innerHTML = html;
+  }
+  if (CH.addUrl) {   // admin: click any day to add an event on it
+    grid.addEventListener('click', function (ev) {
+      if (ev.target.closest('a')) { return; }
+      var cell = ev.target.closest('.cal-cell.can-add');
+      if (cell) { location.href = CH.addUrl + cell.getAttribute('data-date'); }
+    });
   }
   document.getElementById('calPrev').onclick = function () { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); render(); };
   document.getElementById('calNext').onclick = function () { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); render(); };
