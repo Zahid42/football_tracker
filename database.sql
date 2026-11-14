@@ -15,7 +15,7 @@ CREATE DATABASE IF NOT EXISTS `football_tracker`
 USE `football_tracker`;
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS `calendar_events`, `match_squad`, `assists`, `goals`, `match_statistics`, `matches`, `gallery`,
+DROP TABLE IF EXISTS `comp_matches`, `comp_teams`, `calendar_events`, `match_squad`, `assists`, `goals`, `match_statistics`, `matches`, `gallery`,
   `trophies`, `competitions`, `venues`, `opponents`, `player_teams`, `players`, `profile`, `teams`,
   `seasons`, `settings`, `admins`;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -149,6 +149,7 @@ CREATE TABLE `competitions` (
   `name`        VARCHAR(150) NOT NULL,
   `season_id`   INT UNSIGNED DEFAULT NULL,
   `type`        ENUM('Tournament','League','Friendly','Training','Other') NOT NULL DEFAULT 'Tournament',
+  `format`      ENUM('League','Groups') NOT NULL DEFAULT 'League',
   `organizer`   VARCHAR(150) DEFAULT NULL,
   `description` TEXT         DEFAULT NULL,
   `logo`        VARCHAR(255) DEFAULT NULL,

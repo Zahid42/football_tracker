@@ -7,6 +7,7 @@ require __DIR__ . '/includes/header.php';
 $f = player_filter_input();
 $players = players_filtered($f, false);
 ?>
+<?= switch_bar('players') ?>
 <div class="container py-4">
   <div class="section-head"><h1 class="h2 mb-0">Players</h1></div>
   <p class="text-muted-ft">Tap a player to see his profile, matches, statistics and trophies.</p>

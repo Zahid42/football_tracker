@@ -264,3 +264,12 @@ function team_row_item(array $t): string
         . '<span class="tl-stats"><span><b>' . (int)$t['matches'] . '</b> M</span><span><b>' . (int)$t['goals'] . '</b> G</span><span><b>' . (int)$t['assists'] . '</b> A</span></span>'
         . '<span class="ri-go"><i class="bi bi-chevron-right"></i></span></a>';
 }
+
+/** Players | Teams | Competitions switch shown at the top of the homepage and those pages. */
+function switch_bar(string $active): string
+{
+    $tabs = ['players' => ['Players', 'bi-person', 'players.php'], 'teams' => ['Teams', 'bi-shield', 'teams.php'], 'competitions' => ['Competitions', 'bi-trophy', 'competitions.php']];
+    $h = '<div class="switch-bar"><div class="container"><div class="sw-tabs">';
+    foreach ($tabs as $k => [$l, $i, $f]) { $h .= '<a class="sw-tab' . ($k === $active ? ' active' : '') . '" href="' . e(url($f)) . '"><i class="bi ' . $i . '"></i> ' . $l . '</a>'; }
+    return $h . '</div></div></div>';
+}

@@ -19,12 +19,7 @@ $bio = trim((string)($p['bio'] ?? ''));
 ?>
 <?php
 ?>
-<div class="switch-bar"><div class="container">
-  <div class="sw-tabs">
-    <a class="sw-tab active" href="<?= e(url('players.php')) ?>"><i class="bi bi-person"></i> Players</a>
-    <a class="sw-tab" href="<?= e(url('teams.php')) ?>"><i class="bi bi-shield"></i> Teams</a>
-  </div>
-</div></div>
+<?= switch_bar('players') ?>
 <?php if (!$isFeatured): ?>
 <div class="container pt-3"><div class="alert alert-info py-2 mb-0 d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-person"></i> You are viewing <b><?= e($p['full_name']) ?></b>.</span><a class="btn btn-sm btn-outline-theme" href="<?= e(url('index.php')) ?>">Back to homepage player</a></div></div>
 <?php endif; ?>

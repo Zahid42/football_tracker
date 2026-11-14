@@ -23,6 +23,7 @@ $sq = $count('team_squad'); $ach = $count('team_achievements');
 $titles = db()->query("SELECT team_id, COUNT(*) FROM team_achievements WHERE achievement_type = 'Trophy' GROUP BY team_id")->fetchAll(PDO::FETCH_KEY_PAIR);
 $pls = db()->query('SELECT team_id, COUNT(DISTINCT player_id) FROM player_teams GROUP BY team_id')->fetchAll(PDO::FETCH_KEY_PAIR);
 $total = (int)db()->query("SELECT COUNT(*) FROM teams WHERE status = 'active'")->fetchColumn();
+echo switch_bar('teams');
 echo public_page_title('Teams', 'Find a team by name or by its 6-digit ID');
 ?>
 <div class="container py-4">
