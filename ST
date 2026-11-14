@@ -1,0 +1,600 @@
+-- =====================================================================
+-- Football Tracker - database.sql
+-- Import via phpMyAdmin (http://localhost/phpmyadmin -> Import).
+-- Requires MySQL 5.7+ / MariaDB 10.2+ (uses a generated "result" column).
+--
+-- Default admin:   username: admin     password: Admin@12345
+-- (you are forced to change the password on first login)
+--
+-- Rows with is_sample = 1 are demo data. Delete them later with the
+-- statements at the very bottom of this file (or from the admin panel).
+-- =====================================================================
+
+CREATE DATABASE IF NOT EXISTS `football_tracker`
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `football_tracker`;
+
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS `match_squad`, `assists`, `goals`, `match_statistics`, `matches`, `gallery`,
+  `trophies`, `competitions`, `venues`, `opponents`, `profile`, `teams`,
+  `seasons`, `settings`, `admins`;
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ---------------------------------------------------------------------
+-- admins  (single admin now; table is ready for multiple admins later)
+-- ---------------------------------------------------------------------
+CREATE TABLE `admins` (
+  `id`                  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `username`            VARCHAR(50)  NOT NULL,
+  `email`               VARCHAR(120) NOT NULL,
+  `password_hash`       VARCHAR(255) NOT NULL,
+  `must_change_password` TINYINT(1)  NOT NULL DEFAULT 0,
+  `remember_selector`   VARCHAR(32)  DEFAULT NULL,
+  `remember_hash`       CHAR(64)     DEFAULT NULL,
+  `remember_expires`    DATETIME     DEFAULT NULL,
+  `last_login_at`       DATETIME     DEFAULT NULL,
+  `created_at`          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_admin_username` (`username`),
+  UNIQUE KEY `uq_admin_email` (`email`),
+  KEY `idx_admin_selector` (`remember_selector`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- seasons
+-- ---------------------------------------------------------------------
+CREATE TABLE `seasons` (
+  `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`       VARCHAR(30)  NOT NULL,
+  `start_date` DATE         DEFAULT NULL,
+  `end_date`   DATE         DEFAULT NULL,
+  `is_current` TINYINT(1)   NOT NULL DEFAULT 0,
+  `is_sample`  TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_season_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- teams  (teams I play FOR)
+-- ---------------------------------------------------------------------
+CREATE TABLE `teams` (
+  `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`        VARCHAR(100) NOT NULL,
+  `short_name`  VARCHAR(10)  DEFAULT NULL,
+  `logo`        VARCHAR(255) DEFAULT NULL,
+  `founded_year` SMALLINT UNSIGNED DEFAULT NULL,
+  `description` TEXT         DEFAULT NULL,
+  `status`      ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  `is_current`  TINYINT(1)   NOT NULL DEFAULT 0,
+  `start_date`  DATE         DEFAULT NULL,
+  `end_date`    DATE         DEFAULT NULL,
+  `is_sample`   TINYINT(1)   NOT NULL DEFAULT 0,
+  `created_at`  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_team_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- opponents  (teams I play AGAINST; separate so head-to-head is easy later)
+-- ---------------------------------------------------------------------
+CREATE TABLE `opponents` (
+  `id`        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`      VARCHAR(100) NOT NULL,
+  `logo`      VARCHAR(255) DEFAULT NULL,
+  `is_sample` TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_opponent_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- profile  (one row now; admin_id lets you add more players later)
+-- ---------------------------------------------------------------------
+CREATE TABLE `profile` (
+  `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `admin_id`          INT UNSIGNED DEFAULT NULL,
+  `full_name`         VARCHAR(120) NOT NULL,
+  `nickname`          VARCHAR(60)  DEFAULT NULL,
+  `date_of_birth`     DATE         DEFAULT NULL,
+  `preferred_position` VARCHAR(5)  DEFAULT NULL,
+  `secondary_position` VARCHAR(5)  DEFAULT NULL,
+  `strong_foot`       ENUM('Right','Left','Both') DEFAULT NULL,
+  `height_cm`         SMALLINT UNSIGNED DEFAULT NULL,
+  `weight_kg`         DECIMAL(5,1) DEFAULT NULL,
+  `current_team_id`   INT UNSIGNED DEFAULT NULL,
+  `jersey_number`     TINYINT UNSIGNED DEFAULT NULL,
+  `playing_style`     VARCHAR(255) DEFAULT NULL,
+  `bio`               TEXT         DEFAULT NULL,
+  `career_start_date` DATE         DEFAULT NULL,
+  `photo`             VARCHAR(255) DEFAULT NULL,
+  `updated_at`        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_profile_admin` (`admin_id`),
+  CONSTRAINT `fk_profile_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins`(`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_profile_team`  FOREIGN KEY (`current_team_id`) REFERENCES `teams`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- competitions
+-- ---------------------------------------------------------------------
+CREATE TABLE `competitions` (
+  `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`        VARCHAR(150) NOT NULL,
+  `season_id`   INT UNSIGNED DEFAULT NULL,
+  `type`        ENUM('Tournament','League','Friendly','Training','Other') NOT NULL DEFAULT 'Tournament',
+  `organizer`   VARCHAR(150) DEFAULT NULL,
+  `description` TEXT         DEFAULT NULL,
+  `logo`        VARCHAR(255) DEFAULT NULL,
+  `is_sample`   TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_comp_season` (`season_id`),
+  CONSTRAINT `fk_comp_season` FOREIGN KEY (`season_id`) REFERENCES `seasons`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- venues
+-- ---------------------------------------------------------------------
+CREATE TABLE `venues` (
+  `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`       VARCHAR(150) NOT NULL,
+  `location`   VARCHAR(255) DEFAULT NULL,
+  `city`       VARCHAR(80)  DEFAULT NULL,
+  `country`    VARCHAR(80)  DEFAULT 'Bangladesh',
+  `pitch_type` ENUM('Grass','Artificial Turf','Futsal','Concrete','Indoor','Other') DEFAULT NULL,
+  `notes`      TEXT         DEFAULT NULL,
+  `is_sample`  TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- matches  (the match itself)
+-- `result` is a STORED generated column: it can never disagree with the score.
+-- ---------------------------------------------------------------------
+CREATE TABLE `matches` (
+  `id`             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `season_id`      INT UNSIGNED NOT NULL,
+  `competition_id` INT UNSIGNED DEFAULT NULL,
+  `venue_id`       INT UNSIGNED DEFAULT NULL,
+  `team_id`        INT UNSIGNED NOT NULL,
+  `opponent_id`    INT UNSIGNED NOT NULL,
+  `match_date`     DATE         NOT NULL,
+  `kickoff_time`   TIME         DEFAULT NULL,
+  `match_type`     ENUM('League','Tournament','Friendly','Training','Knockout','Final','Other') NOT NULL DEFAULT 'Friendly',
+  `home_away`      ENUM('Home','Away','Neutral') NOT NULL DEFAULT 'Neutral',
+  `formation`      VARCHAR(10)  DEFAULT NULL,
+  `team_score`     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `opponent_score` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `result`         CHAR(1) GENERATED ALWAYS AS (
+                     CASE WHEN `team_score` > `opponent_score` THEN 'W'
+                          WHEN `team_score` < `opponent_score` THEN 'L'
+                          ELSE 'D' END) STORED,
+  `notes`          TEXT         DEFAULT NULL,
+  `photo`          VARCHAR(255) DEFAULT NULL,
+  `team_photo`     VARCHAR(255) DEFAULT NULL,
+  `is_sample`      TINYINT(1)   NOT NULL DEFAULT 0,
+  `created_at`     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_match_date`   (`match_date`),
+  KEY `idx_match_season` (`season_id`),
+  KEY `idx_match_comp`   (`competition_id`),
+  KEY `idx_match_team`   (`team_id`),
+  KEY `idx_match_opp`    (`opponent_id`),
+  KEY `idx_match_venue`  (`venue_id`),
+  KEY `idx_match_result` (`result`),
+  CONSTRAINT `fk_match_season` FOREIGN KEY (`season_id`)      REFERENCES `seasons`(`id`)      ON DELETE RESTRICT,
+  CONSTRAINT `fk_match_comp`   FOREIGN KEY (`competition_id`) REFERENCES `competitions`(`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_match_venue`  FOREIGN KEY (`venue_id`)       REFERENCES `venues`(`id`)       ON DELETE SET NULL,
+  CONSTRAINT `fk_match_team`   FOREIGN KEY (`team_id`)        REFERENCES `teams`(`id`)        ON DELETE RESTRICT,
+  CONSTRAINT `fk_match_opp`    FOREIGN KEY (`opponent_id`)    REFERENCES `opponents`(`id`)    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- match_statistics  (MY personal numbers for a match; 1 row per match.
+-- Later you can drop the UNIQUE key and add player_id for multi-player.)
+-- ---------------------------------------------------------------------
+CREATE TABLE `match_statistics` (
+  `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `match_id`      INT UNSIGNED NOT NULL,
+  `position`      VARCHAR(5)   DEFAULT NULL,
+  `started`       TINYINT(1)   NOT NULL DEFAULT 1,
+  `minutes_played` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  `goals`         TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `assists`       TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `yellow_cards`  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `red_cards`     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `own_goals`     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `penalty_goals` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `fouls`         TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `rating`        DECIMAL(3,1) DEFAULT NULL,
+  `is_captain`    TINYINT(1)   NOT NULL DEFAULT 0,
+  `is_motm`       TINYINT(1)   NOT NULL DEFAULT 0,
+  `remarks`       VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_stats_match` (`match_id`),
+  KEY `idx_stats_position` (`position`),
+  CONSTRAINT `fk_stats_match` FOREIGN KEY (`match_id`) REFERENCES `matches`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_rating` CHECK (`rating` IS NULL OR (`rating` >= 0 AND `rating` <= 10))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- goals
+-- ---------------------------------------------------------------------
+CREATE TABLE `goals` (
+  `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `match_id`    INT UNSIGNED NOT NULL,
+  `minute`      TINYINT UNSIGNED DEFAULT NULL,
+  `goal_type`   ENUM('Open Play','Header','Penalty','Free Kick','Long Range','Tap In','Counter Attack','Other') NOT NULL DEFAULT 'Open Play',
+  `assisted_by` VARCHAR(100) DEFAULT NULL,
+  `description` VARCHAR(255) DEFAULT NULL,
+  `is_sample`   TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_goal_match` (`match_id`),
+  KEY `idx_goal_type`  (`goal_type`),
+  CONSTRAINT `fk_goal_match` FOREIGN KEY (`match_id`) REFERENCES `matches`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- assists
+-- ---------------------------------------------------------------------
+CREATE TABLE `assists` (
+  `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `match_id`     INT UNSIGNED NOT NULL,
+  `minute`       TINYINT UNSIGNED DEFAULT NULL,
+  `assist_type`  ENUM('Through Ball','Cross','Corner','Free Kick','Cut Back','Pass','Set Piece','Other') NOT NULL DEFAULT 'Pass',
+  `goal_scorer`  VARCHAR(100) DEFAULT NULL,
+  `description`  VARCHAR(255) DEFAULT NULL,
+  `is_sample`    TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_assist_match` (`match_id`),
+  CONSTRAINT `fk_assist_match` FOREIGN KEY (`match_id`) REFERENCES `matches`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- trophies
+-- ---------------------------------------------------------------------
+CREATE TABLE `trophies` (
+  `id`              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tournament_name` VARCHAR(150) NOT NULL,
+  `year`            SMALLINT UNSIGNED NOT NULL,
+  `team_id`         INT UNSIGNED DEFAULT NULL,
+  `achievement`     ENUM('Champion','Runner-up','Third Place','Best Player','Top Scorer','Top Assist','Other') NOT NULL DEFAULT 'Champion',
+  `position`        VARCHAR(30)  DEFAULT NULL,
+  `description`     TEXT         DEFAULT NULL,
+  `image`           VARCHAR(255) DEFAULT NULL,
+  `is_sample`       TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_trophy_year` (`year`),
+  KEY `idx_trophy_team` (`team_id`),
+  CONSTRAINT `fk_trophy_team` FOREIGN KEY (`team_id`) REFERENCES `teams`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- match_squad  (my team's line-up for a match: slots 1-11 = starting XI in
+-- formation order (GK first), slots 12+ = substitutes)
+-- ---------------------------------------------------------------------
+CREATE TABLE `match_squad` (
+  `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `match_id`     INT UNSIGNED NOT NULL,
+  `slot`         TINYINT UNSIGNED NOT NULL,
+  `player_name`  VARCHAR(80)  NOT NULL,
+  `shirt_number` TINYINT UNSIGNED DEFAULT NULL,
+  `position`     VARCHAR(5)   DEFAULT NULL,
+  `is_me`        TINYINT(1)   NOT NULL DEFAULT 0,
+  `is_captain`   TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_squad_slot` (`match_id`,`slot`),
+  CONSTRAINT `fk_squad_match` FOREIGN KEY (`match_id`) REFERENCES `matches`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- gallery
+-- ---------------------------------------------------------------------
+CREATE TABLE `gallery` (
+  `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `category`   ENUM('Match Photos','Team Photos','Tournament Photos','Training Photos','Trophies','Personal') NOT NULL DEFAULT 'Match Photos',
+  `caption`    VARCHAR(255) DEFAULT NULL,
+  `image`      VARCHAR(255) NOT NULL,
+  `photo_date` DATE         DEFAULT NULL,
+  `match_id`   INT UNSIGNED DEFAULT NULL,
+  `is_sample`  TINYINT(1)   NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_gallery_cat` (`category`),
+  KEY `idx_gallery_match` (`match_id`),
+  CONSTRAINT `fk_gallery_match` FOREIGN KEY (`match_id`) REFERENCES `matches`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- settings  (key/value)
+-- ---------------------------------------------------------------------
+CREATE TABLE `settings` (
+  `setting_key`   VARCHAR(60) NOT NULL,
+  `setting_value` TEXT        DEFAULT NULL,
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================================
+-- DATA
+-- =====================================================================
+
+-- Default admin (password: Admin@12345) - must change on first login
+INSERT INTO `admins` (`id`,`username`,`email`,`password_hash`,`must_change_password`) VALUES
+(1,'admin','admin@example.com','$2y$10$6WAbNPGYwN7mg23GkAfSieGQZOc.H5SUjKIYoJaNtugv3x1fM3Yg.',1);
+
+INSERT INTO `settings` (`setting_key`,`setting_value`) VALUES
+('site_title','Football Tracker'),
+('site_tagline','Personal Football Profile & Match Tracker'),
+('rating_scale_max','10'),
+('about_text','This website is my personal football record: every match I have played, the teams I played for, my statistics, trophies and photos. Edit this text from Admin > Settings.'),
+('contact_email','');
+
+-- ---- SAMPLE DATA (is_sample = 1) ------------------------------------
+INSERT INTO `seasons` (`id`,`name`,`start_date`,`end_date`,`is_current`,`is_sample`) VALUES
+(1,'2025','2025-01-01','2025-12-31',0,1),
+(2,'2026','2026-01-01','2026-12-31',1,1);
+
+INSERT INTO `teams` (`id`,`name`,`short_name`,`founded_year`,`description`,`status`,`is_current`,`start_date`,`end_date`,`is_sample`) VALUES
+(1,'Team Zahid','TZD',2024,'Sample team - my main side.','active',1,'2025-01-01',NULL,1),
+(2,'Riverside FC','RFC',2019,'Sample team - played here in 2025.','inactive',0,'2025-01-01','2025-12-31',1),
+(3,'Office Warriors','OWR',2022,'Sample team - corporate league side.','active',0,'2025-09-01',NULL,1);
+
+INSERT INTO `opponents` (`id`,`name`,`is_sample`) VALUES
+(1,'Team A',1),(2,'Dhaka Strikers',1),(3,'Blue Hawks',1),(4,'Red Lions',1),
+(5,'Gulshan United',1),(6,'Thunder FC',1),(7,'Metro Boys',1);
+
+INSERT INTO `competitions` (`id`,`name`,`season_id`,`type`,`organizer`,`description`,`is_sample`) VALUES
+(1,'JBPLC Football Tournament',NULL,'Tournament','JBPLC','Sample tournament.',1),
+(2,'Corporate Football League',NULL,'League','Corporate Sports Board','Sample league.',1),
+(3,'Office Tournament',2,'Tournament','HR Department','Sample office cup.',1);
+
+INSERT INTO `venues` (`id`,`name`,`location`,`city`,`country`,`pitch_type`,`notes`,`is_sample`) VALUES
+(1,'Green Field Arena','Banani','Dhaka','Bangladesh','Artificial Turf','Sample venue.',1),
+(2,'City Sports Complex','Uttara','Dhaka','Bangladesh','Grass','Sample venue.',1);
+
+INSERT INTO `profile` (`id`,`admin_id`,`full_name`,`nickname`,`date_of_birth`,`preferred_position`,`secondary_position`,`strong_foot`,`height_cm`,`weight_kg`,`current_team_id`,`jersey_number`,`playing_style`,`bio`,`career_start_date`) VALUES
+(1,1,'Kazi Zahidul Islam','Zahid','1995-01-01','CAM','CM','Right',172,68.0,1,10,'Creative playmaker with a good eye for the final pass.',
+ 'Attacking midfielder who loves to create chances and arrive late in the box. Edit this biography from Admin > Profile.','2024-01-01');
+
+-- 10 matches. Match ids 1..10 are referenced by goals / assists below.
+INSERT INTO `matches` (`id`,`season_id`,`competition_id`,`venue_id`,`team_id`,`opponent_id`,`match_date`,`kickoff_time`,`match_type`,`home_away`,`formation`,`team_score`,`opponent_score`,`notes`,`is_sample`) VALUES
+(1,1,NULL,1,2,1,'2025-03-15','17:00:00','Friendly','Neutral','4-3-3',2,1,'Sample: comfortable friendly win.',1),
+(2,1,1,1,1,2,'2025-05-10','16:30:00','Tournament','Neutral','4-2-3-1',3,3,'Sample: wild draw, equalised late.',1),
+(3,1,1,2,1,3,'2025-08-23','18:00:00','Tournament','Neutral','4-2-3-1',1,2,'Sample: tough loss.',1),
+(4,1,2,1,3,4,'2025-11-08','19:00:00','League','Home','4-2-3-1',4,0,'Sample: best performance of the year.',1),
+(5,2,2,1,3,5,'2026-01-17','19:00:00','League','Away','4-3-3',2,2,'Sample: late equaliser conceded.',1),
+(6,2,1,2,1,6,'2026-03-14','17:30:00','Tournament','Neutral','4-2-3-1',3,1,'Sample: quarter-final win.',1),
+(7,2,NULL,1,1,7,'2026-05-02','16:00:00','Friendly','Home','4-4-2',5,2,'Sample: played up front, two goals two assists.',1),
+(8,2,1,2,1,2,'2026-07-18','18:00:00','Tournament','Neutral','4-2-3-1',0,1,'Sample: unlucky loss.',1),
+(9,2,3,1,3,1,'2026-09-12','17:00:00','Tournament','Neutral','4-2-3-1',2,0,'Sample: clean sheet win.',1),
+(10,2,1,2,1,3,'2026-10-31','17:00:00','Final','Neutral','4-2-3-1',3,2,'Sample: tournament final win.',1);
+
+INSERT INTO `match_statistics` (`match_id`,`position`,`started`,`minutes_played`,`goals`,`assists`,`yellow_cards`,`red_cards`,`own_goals`,`penalty_goals`,`fouls`,`rating`,`is_captain`,`is_motm`) VALUES
+(1,'CM',1,60,0,1,0,0,0,0,1,7.2,0,0),
+(2,'CAM',1,70,1,1,0,0,0,0,2,7.8,0,0),
+(3,'CAM',1,70,0,0,0,0,0,0,3,6.4,0,0),
+(4,'CAM',1,60,2,1,0,0,0,1,0,8.9,0,1),
+(5,'CM',1,60,1,0,0,0,0,0,2,7.0,0,0),
+(6,'CAM',1,70,1,1,0,0,0,0,1,8.2,0,0),
+(7,'ST',1,50,2,2,0,0,0,0,0,9.0,1,1),
+(8,'CAM',1,70,0,0,1,0,0,0,4,6.1,0,0),
+(9,'CAM',1,70,1,1,0,0,0,0,1,8.0,0,0),
+(10,'CAM',1,70,1,1,0,0,0,0,1,8.2,1,1);
+
+INSERT INTO `match_squad` (`match_id`,`slot`,`player_name`,`shirt_number`,`position`,`is_me`,`is_captain`) VALUES
+(1,1,'Fahim',1,'GK',0,0),
+(1,2,'Nayeem',9,'LB',0,0),
+(1,3,'Joy',1,'CB',0,0),
+(1,4,'Sabbir',23,'CB',0,0),
+(1,5,'Imran',20,'RB',0,0),
+(1,6,'Zahid',10,'CM',1,0),
+(1,7,'Sakib',13,'CM',0,0),
+(1,8,'Shuvo',26,'CM',0,0),
+(1,9,'Limon',25,'LW',0,0),
+(1,10,'Arif',22,'ST',0,0),
+(1,11,'Rony',21,'RW',0,0),
+(1,12,'Rafi',12,'GK',0,0),
+(1,13,'Rubel',8,'CB',0,0),
+(1,14,'Tanvir',4,'CM',0,0),
+(1,15,'Bappy',19,'LW',0,0),
+(1,16,'Hasan',2,'ST',0,0),
+(2,1,'Nayeem',1,'GK',0,0),
+(2,2,'Rony',28,'LB',0,0),
+(2,3,'Sakib',2,'CB',0,0),
+(2,4,'Bappy',27,'CB',0,0),
+(2,5,'Tanvir',6,'RB',0,0),
+(2,6,'Asif',8,'CDM',0,0),
+(2,7,'Limon',10,'CDM',0,0),
+(2,8,'Shuvo',12,'LM',0,0),
+(2,9,'Zahid',10,'CAM',1,0),
+(2,10,'Fahim',23,'RM',0,0),
+(2,11,'Imran',19,'ST',0,0),
+(2,12,'Sabbir',12,'GK',0,0),
+(2,13,'Masud',15,'CB',0,0),
+(2,14,'Arif',11,'CM',0,0),
+(2,15,'Rafi',25,'LW',0,0),
+(2,16,'Naim',14,'ST',0,0),
+(3,1,'Rony',1,'GK',0,0),
+(3,2,'Limon',8,'LB',0,0),
+(3,3,'Masud',5,'CB',0,0),
+(3,4,'Fahim',17,'CB',0,0),
+(3,5,'Rubel',3,'RB',0,0),
+(3,6,'Nayeem',15,'CDM',0,0),
+(3,7,'Bappy',27,'CDM',0,0),
+(3,8,'Sabbir',16,'LM',0,0),
+(3,9,'Zahid',10,'CAM',1,0),
+(3,10,'Joy',20,'RM',0,0),
+(3,11,'Shuvo',12,'ST',0,0),
+(3,12,'Hasan',12,'GK',0,0),
+(3,13,'Imran',23,'CB',0,0),
+(3,14,'Arif',29,'CM',0,0),
+(3,15,'Tamim',11,'LW',0,0),
+(3,16,'Tanvir',26,'ST',0,0),
+(4,1,'Imran',1,'GK',0,0),
+(4,2,'Sabbir',19,'LB',0,0),
+(4,3,'Rony',28,'CB',0,0),
+(4,4,'Rubel',14,'CB',0,0),
+(4,5,'Naim',29,'RB',0,0),
+(4,6,'Tamim',9,'CDM',0,0),
+(4,7,'Hasan',18,'CDM',0,0),
+(4,8,'Fahim',25,'LM',0,0),
+(4,9,'Zahid',10,'CAM',1,0),
+(4,10,'Arif',15,'RM',0,0),
+(4,11,'Rafi',6,'ST',0,0),
+(4,12,'Mahin',12,'GK',0,0),
+(4,13,'Limon',3,'CB',0,0),
+(4,14,'Bappy',16,'CM',0,0),
+(4,15,'Nayeem',26,'LW',0,0),
+(4,16,'Joy',13,'ST',0,0),
+(5,1,'Shuvo',1,'GK',0,0),
+(5,2,'Sakib',27,'LB',0,0),
+(5,3,'Tamim',7,'CB',0,0),
+(5,4,'Joy',21,'CB',0,0),
+(5,5,'Mahin',13,'RB',0,0),
+(5,6,'Zahid',10,'CM',1,0),
+(5,7,'Imran',15,'CM',0,0),
+(5,8,'Sabbir',2,'CM',0,0),
+(5,9,'Rubel',25,'LW',0,0),
+(5,10,'Limon',17,'ST',0,0),
+(5,11,'Tanvir',29,'RW',0,0),
+(5,12,'Fahim',12,'GK',0,0),
+(5,13,'Rafi',11,'CB',0,0),
+(5,14,'Masud',19,'CM',0,0),
+(5,15,'Hasan',20,'LW',0,0),
+(5,16,'Nayeem',12,'ST',0,0),
+(6,1,'Tanvir',1,'GK',0,0),
+(6,2,'Masud',8,'LB',0,0),
+(6,3,'Joy',14,'CB',0,0),
+(6,4,'Sabbir',17,'CB',0,0),
+(6,5,'Hasan',4,'RB',0,0),
+(6,6,'Limon',16,'CDM',0,0),
+(6,7,'Bappy',23,'CDM',0,0),
+(6,8,'Mahin',26,'LM',0,0),
+(6,9,'Zahid',10,'CAM',1,0),
+(6,10,'Imran',12,'RM',0,0),
+(6,11,'Rubel',9,'ST',0,0),
+(6,12,'Arif',12,'GK',0,0),
+(6,13,'Rafi',21,'CB',0,0),
+(6,14,'Fahim',5,'CM',0,0),
+(6,15,'Shuvo',13,'LW',0,0),
+(6,16,'Nayeem',20,'ST',0,0),
+(7,1,'Rubel',1,'GK',0,0),
+(7,2,'Masud',4,'LB',0,0),
+(7,3,'Asif',16,'CB',0,0),
+(7,4,'Rony',11,'CB',0,0),
+(7,5,'Imran',22,'RB',0,0),
+(7,6,'Naim',8,'LM',0,0),
+(7,7,'Sabbir',26,'CM',0,0),
+(7,8,'Tamim',6,'CM',0,0),
+(7,9,'Arif',12,'RM',0,0),
+(7,10,'Zahid',10,'ST',1,1),
+(7,11,'Nayeem',28,'ST',0,0),
+(7,12,'Mahin',12,'GK',0,0),
+(7,13,'Bappy',9,'CB',0,0),
+(7,14,'Rafi',23,'CM',0,0),
+(7,15,'Sakib',3,'LW',0,0),
+(7,16,'Fahim',21,'ST',0,0),
+(8,1,'Bappy',1,'GK',0,0),
+(8,2,'Hasan',22,'LB',0,0),
+(8,3,'Mahin',14,'CB',0,0),
+(8,4,'Joy',28,'CB',0,0),
+(8,5,'Naim',29,'RB',0,0),
+(8,6,'Tanvir',20,'CDM',0,0),
+(8,7,'Shuvo',1,'CDM',0,0),
+(8,8,'Masud',24,'LM',0,0),
+(8,9,'Zahid',10,'CAM',1,0),
+(8,10,'Arif',23,'RM',0,0),
+(8,11,'Rafi',11,'ST',0,0),
+(8,12,'Fahim',12,'GK',0,0),
+(8,13,'Nayeem',7,'CB',0,0),
+(8,14,'Limon',16,'CM',0,0),
+(8,15,'Imran',27,'LW',0,0),
+(8,16,'Sabbir',4,'ST',0,0),
+(9,1,'Tanvir',1,'GK',0,0),
+(9,2,'Joy',13,'LB',0,0),
+(9,3,'Hasan',25,'CB',0,0),
+(9,4,'Masud',1,'CB',0,0),
+(9,5,'Arif',28,'RB',0,0),
+(9,6,'Naim',18,'CDM',0,0),
+(9,7,'Asif',24,'CDM',0,0),
+(9,8,'Fahim',12,'LM',0,0),
+(9,9,'Zahid',10,'CAM',1,0),
+(9,10,'Limon',16,'RM',0,0),
+(9,11,'Sabbir',23,'ST',0,0),
+(9,12,'Rubel',12,'GK',0,0),
+(9,13,'Mahin',20,'CB',0,0),
+(9,14,'Rony',29,'CM',0,0),
+(9,15,'Tamim',21,'LW',0,0),
+(9,16,'Rafi',26,'ST',0,0),
+(10,1,'Tanvir',1,'GK',0,0),
+(10,2,'Limon',8,'LB',0,0),
+(10,3,'Nayeem',20,'CB',0,0),
+(10,4,'Sakib',1,'CB',0,0),
+(10,5,'Hasan',18,'RB',0,0),
+(10,6,'Asif',28,'CDM',0,0),
+(10,7,'Rubel',21,'CDM',0,0),
+(10,8,'Bappy',14,'LM',0,0),
+(10,9,'Zahid',10,'CAM',1,1),
+(10,10,'Rafi',17,'RM',0,0),
+(10,11,'Naim',19,'ST',0,0),
+(10,12,'Joy',12,'GK',0,0),
+(10,13,'Fahim',22,'CB',0,0),
+(10,14,'Rony',15,'CM',0,0),
+(10,15,'Masud',12,'LW',0,0),
+(10,16,'Shuvo',24,'ST',0,0);
+
+-- 9 goals (matches the per-match goal totals above)
+INSERT INTO `goals` (`match_id`,`minute`,`goal_type`,`assisted_by`,`description`,`is_sample`) VALUES
+(2,34,'Open Play','Rafi','Sample: low finish from the edge of the box.',1),
+(4,12,'Tap In',NULL,'Sample: rebound after a shot.',1),
+(4,55,'Penalty',NULL,'Sample: penalty, bottom left.',1),
+(5,41,'Free Kick',NULL,'Sample: curled over the wall.',1),
+(6,67,'Long Range','Sabbir','Sample: 25-yard strike.',1),
+(7,18,'Header','Imran','Sample: header from a corner.',1),
+(7,44,'Counter Attack',NULL,'Sample: finished a fast break.',1),
+(9,29,'Open Play','Rafi','Sample: slotted past the keeper.',1),
+(10,58,'Open Play','Tanvir','Sample: winner in the final.',1);
+
+-- 8 assists (matches the per-match assist totals above)
+INSERT INTO `assists` (`match_id`,`minute`,`assist_type`,`goal_scorer`,`description`,`is_sample`) VALUES
+(1,40,'Through Ball','Rafi','Sample: split the defence.',1),
+(2,62,'Cross','Sabbir','Sample: whipped cross.',1),
+(4,30,'Pass','Imran','Sample: simple pass, great finish.',1),
+(6,20,'Corner','Tanvir','Sample: corner to the far post.',1),
+(7,22,'Cut Back','Rafi','Sample: cut back from the byline.',1),
+(7,38,'Through Ball','Sabbir','Sample: through ball for a tap-in.',1),
+(9,50,'Free Kick','Imran','Sample: free kick headed in.',1),
+(10,80,'Through Ball','Tanvir','Sample: late through ball.',1);
+
+INSERT INTO `trophies` (`tournament_name`,`year`,`team_id`,`achievement`,`position`,`description`,`is_sample`) VALUES
+('JBPLC Football Tournament',2026,1,'Champion','1st','Sample trophy: won the final 3-2.',1),
+('Corporate Football League',2025,3,'Runner-up','2nd','Sample trophy.',1),
+('Office Tournament',2026,3,'Third Place','3rd','Sample trophy.',1);
+
+-- 10 sample gallery rows (placeholder images are in uploads/gallery/sample_XX.png)
+INSERT INTO `gallery` (`category`,`caption`,`image`,`photo_date`,`match_id`,`is_sample`) VALUES
+('Match Photos','Sample photo 1','gallery/sample_01.png','2026-10-31',10,1),
+('Match Photos','Sample photo 2','gallery/sample_02.png','2026-05-02',7,1),
+('Match Photos','Sample photo 3','gallery/sample_03.png','2025-11-08',4,1),
+('Team Photos','Sample photo 4','gallery/sample_04.png','2026-03-14',NULL,1),
+('Team Photos','Sample photo 5','gallery/sample_05.png','2025-01-20',NULL,1),
+('Tournament Photos','Sample photo 6','gallery/sample_06.png','2026-10-31',10,1),
+('Tournament Photos','Sample photo 7','gallery/sample_07.png','2026-03-14',6,1),
+('Training Photos','Sample photo 8','gallery/sample_08.png','2026-02-10',NULL,1),
+('Trophies','Sample photo 9','gallery/sample_09.png','2026-10-31',NULL,1),
+('Personal','Sample photo 10','gallery/sample_10.png','2026-01-01',NULL,1);
+
+-- =====================================================================
+-- DELETE SAMPLE DATA LATER (run in phpMyAdmin > SQL):
+--   (squads are deleted automatically together with their matches)
+--   DELETE FROM gallery  WHERE is_sample = 1;
+--   DELETE FROM trophies WHERE is_sample = 1;
+--   DELETE FROM matches  WHERE is_sample = 1;  -- cascades to goals/assists/stats
+--   DELETE FROM goals    WHERE is_sample = 1;
+--   DELETE FROM assists  WHERE is_sample = 1;
+--   DELETE FROM competitions WHERE is_sample = 1;
+--   DELETE FROM venues   WHERE is_sample = 1;
+--   DELETE FROM opponents WHERE is_sample = 1;
+--   UPDATE profile SET current_team_id = NULL;
+--   DELETE FROM teams    WHERE is_sample = 1;
+--   DELETE FROM seasons  WHERE is_sample = 1;
+-- =====================================================================
