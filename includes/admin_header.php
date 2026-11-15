@@ -23,7 +23,7 @@ $activePage = basename($_SERVER['SCRIPT_NAME']);
   </script>
   <link href="<?= e(url("assets/vendor/bootstrap/bootstrap.min.css")) ?>" rel="stylesheet">
   <link href="<?= e(url("assets/vendor/bootstrap-icons/bootstrap-icons.min.css")) ?>" rel="stylesheet">
-  <link href="<?= e(url('assets/css/style.css')) ?>" rel="stylesheet">
+  <link href="<?= e(url('assets/css/style.css') . '?v=' . (int)@filemtime(ROOT_PATH . '/assets/css/style.css')) ?>" rel="stylesheet">
   <link href="<?= e(url('assets/css/admin.css')) ?>" rel="stylesheet">
 </head>
 <body class="admin-body">
