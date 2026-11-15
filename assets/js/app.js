@@ -8,7 +8,8 @@
 
   document.querySelectorAll('[data-theme-toggle]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var next = currentTheme() === 'dark' ? 'light' : 'dark';
+      var order = ['dark', 'light', 'ocean'];
+      var next = order[(order.indexOf(currentTheme()) + 1) % order.length];
       document.documentElement.setAttribute('data-theme', next);
       try { localStorage.setItem('ft-theme', next); } catch (e) { /* ignore */ }
       // Charts read colours at creation; reload keeps things simple and correct.

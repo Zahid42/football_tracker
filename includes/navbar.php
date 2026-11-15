@@ -20,7 +20,7 @@ declare(strict_types=1);
           </li>
         <?php endforeach; ?>
         <li class="nav-item ms-lg-2">
-          <button class="btn btn-sm btn-outline-theme" type="button" data-theme-toggle aria-label="Toggle light/dark theme">
+          <button class="btn btn-sm btn-outline-theme" type="button" data-theme-toggle aria-label="Switch theme (Dark, Light, Ocean)" title="Switch theme: Dark / Light / Ocean">
             <i class="bi bi-circle-half"></i>
           </button>
         </li>

@@ -19,7 +19,7 @@ $activePage = $activePage ?? basename($_SERVER['SCRIPT_NAME']);
   <title><?= e($pageTitle) ?> | <?= e(setting('site_title', 'Football Tracker')) ?></title>
   <script>
     // Apply saved theme before paint to avoid flashing
-    (function(){try{var t=localStorage.getItem('ft-theme');if(t){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();
+    (function(){try{var t=localStorage.getItem('ft-theme');if(t){document.documentElement.setAttribute('data-theme',t);if(t==='ocean'){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;600;700&display=swap';document.head.appendChild(l);}}}catch(e){}})();
   </script>
   <link href="<?= e(url("assets/vendor/bootstrap/bootstrap.min.css")) ?>" rel="stylesheet">
   <link href="<?= e(url("assets/vendor/bootstrap-icons/bootstrap-icons.min.css")) ?>" rel="stylesheet">

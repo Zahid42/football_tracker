@@ -31,7 +31,7 @@
 }
 .sidebar-link i { font-size: 1.05rem; width: 1.2rem; text-align: center; }
 .sidebar-link:hover { background: #12231a; color: #fff; }
-.sidebar-link.active { background: rgba(34,197,94,.16); color: var(--accent); font-weight: 600; }
+.sidebar-link.active { background: rgba(var(--accent-rgb),.16); color: var(--accent); font-weight: 600; }
 .sidebar-link.disabled { opacity: .45; cursor: not-allowed; }
 .sidebar-link.disabled:hover { background: none; color: #cfe3d8; }
 .sidebar-link .soon { margin-left: auto; font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; border: 1px solid #2a4538; border-radius: 6px; padding: 0 .35rem; }
@@ -44,3 +44,21 @@
 }
 .admin-content { padding: 1.5rem 1.25rem 3rem; max-width: 1500px; }
 @media (min-width: 992px) { .admin-content { padding: 1.5rem 2rem 3rem; } }
+
+/* ---- Ocean theme: deep-teal sidebar ---- */
+[data-theme="ocean"] .admin-sidebar { background: #0e2d3a !important; background-color: #0e2d3a !important; color: #eaf1f4; --bs-offcanvas-bg: #0e2d3a; --bs-offcanvas-color: #eaf1f4; border-right-color: #0e2d3a; }
+[data-theme="ocean"] .sidebar-head, [data-theme="ocean"] .sidebar-foot { border-color: rgba(234,241,244,.14); color: #b9cdd6; }
+[data-theme="ocean"] .sidebar-head .brand, [data-theme="ocean"] .admin-topbar .brand { color: #eaf1f4; }
+[data-theme="ocean"] .sidebar-heading { color: #8fb0be; }
+[data-theme="ocean"] .sidebar-link { color: #eaf1f4; }
+[data-theme="ocean"] .sidebar-link:hover { background: rgba(234,241,244,.10); color: #fff; }
+[data-theme="ocean"] .sidebar-link.active { background: rgba(234,241,244,.16); color: #fff; }
+
+/* ---- Light theme: deep-green sidebar ---- */
+[data-theme="light"] .admin-sidebar { background: #12261c !important; background-color: #12261c !important; color: #ecf4ef; --bs-offcanvas-bg: #12261c; --bs-offcanvas-color: #ecf4ef; border-right-color: #12261c; }
+[data-theme="light"] .sidebar-head, [data-theme="light"] .sidebar-foot { border-color: rgba(236,244,239,.14); color: #b7cfc1; }
+[data-theme="light"] .sidebar-head .brand, [data-theme="light"] .admin-topbar .brand { color: #ecf4ef; }
+[data-theme="light"] .sidebar-heading { color: #8fb3a0; }
+[data-theme="light"] .sidebar-link { color: #ecf4ef; }
+[data-theme="light"] .sidebar-link:hover { background: rgba(236,244,239,.10); color: #fff; }
+[data-theme="light"] .sidebar-link.active { background: rgba(236,244,239,.16); color: #fff; }
