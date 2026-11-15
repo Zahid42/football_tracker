@@ -16,7 +16,7 @@ declare(strict_types=1);
         <?php $multi = count(players_list()) > 1; foreach (public_nav() as $item): if ((!empty($item['multi']) && !$multi) || (!empty($item['reg']) && setting('registration_open', '1') !== '1')) { continue; } ?>
           <li class="nav-item">
             <a class="nav-link <?= $activePage === basename($item['href']) || ($activePage === 'match-details.php' && $item['href'] === 'matches.php') ? 'active' : '' ?>"
-               href="<?= e(!empty($item['multi']) || !empty($item['reg']) ? url($item['href']) : purl($item['href'])) ?>"><?= e($item['label']) ?></a>
+               href="<?= e(!empty($item['global']) ? url($item['href']) : purl($item['href'])) ?>"><?= e($item['label']) ?></a>
           </li>
         <?php endforeach; ?>
         <li class="nav-item ms-lg-2">
@@ -24,8 +24,16 @@ declare(strict_types=1);
             <i class="bi bi-circle-half"></i>
           </button>
         </li>
+        <?php if ($mem = current_member()): ?>
+          <li class="nav-item"><a class="btn btn-sm btn-outline-theme<?= $activePage === 'account.php' ? ' active' : '' ?>" href="<?= e(url('account.php')) ?>"><i class="bi bi-person-circle"></i> My account</a></li>
+        <?php elseif (setting('registration_open', '1') === '1'): ?>
+          <li class="nav-item"><a class="btn btn-sm btn-outline-theme" href="<?= e(url('signin.php')) ?>">Sign in</a></li>
+          <li class="nav-item"><a class="btn btn-sm btn-accent" href="<?= e(url('signup.php')) ?>">Sign up</a></li>
+        <?php else: ?>
+          <li class="nav-item"><a class="btn btn-sm btn-outline-theme" href="<?= e(url('signin.php')) ?>">Sign in</a></li>
+        <?php endif; ?>
         <li class="nav-item">
-          <a class="btn btn-sm btn-accent" href="<?= e(url('admin/')) ?>"><i class="bi bi-lock"></i> Admin</a>
+          <a class="btn btn-sm btn-outline-theme" href="<?= e(url('admin/')) ?>" title="Admin"><i class="bi bi-lock"></i><span class="d-lg-none"> Admin</span></a>
         </li>
       </ul>
     </div>

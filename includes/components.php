@@ -273,3 +273,15 @@ function switch_bar(string $active): string
     foreach ($tabs as $k => [$l, $i, $f]) { $h .= '<a class="sw-tab' . ($k === $active ? ' active' : '') . '" href="' . e(url($f)) . '"><i class="bi ' . $i . '"></i> ' . $l . '</a>'; }
     return $h . '</div></div></div>';
 }
+
+/** Tab strip for the player being viewed: Overview, Matches, Statistics, Career, Trophies... (links keep the player). */
+function player_tabs(string $active): string
+{
+    $pl = get_player(ctx_pid());
+    $h = '<div class="player-tabs"><div class="container"><div class="pt-scroll">';
+    if ($pl && !empty($pl['full_name'])) { $h .= '<span class="pt-name"><i class="bi bi-person-circle"></i> ' . e($pl['full_name']) . '</span>'; }
+    foreach (player_tab_items() as $file => [$label, $icon]) {
+        $h .= '<a class="pt-tab' . ($file === $active ? ' active' : '') . '" href="' . e(purl($file)) . '"><i class="bi ' . $icon . '"></i> ' . e($label) . '</a>';
+    }
+    return $h . '</div></div></div>';
+}

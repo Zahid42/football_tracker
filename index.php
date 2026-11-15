@@ -20,6 +20,7 @@ $bio = trim((string)($p['bio'] ?? ''));
 <?php
 ?>
 <?= switch_bar('players') ?>
+<?= player_tabs('index.php') ?>
 <?php if (!$isFeatured): ?>
 <div class="container pt-3"><div class="alert alert-info py-2 mb-0 d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-person"></i> You are viewing <b><?= e($p['full_name']) ?></b>.</span><a class="btn btn-sm btn-outline-theme" href="<?= e(url('index.php')) ?>">Back to homepage player</a></div></div>
 <?php endif; ?>

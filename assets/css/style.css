@@ -599,3 +599,13 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
   .ft-footer{display:none}
 }
 @media (display-mode:standalone){ .ft-footer{display:none} .navbar-toggler{display:inline-block} }
+
+/* ---- per-player tab strip ---- */
+.player-tabs{border-bottom:1px solid var(--card-border);background:var(--card)}
+.pt-scroll{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+.pt-scroll::-webkit-scrollbar{display:none}
+.pt-name{font-weight:700;margin-right:8px;white-space:nowrap;color:var(--muted)}
+.pt-tab{flex:none;padding:6px 14px;border-radius:999px;color:inherit;text-decoration:none;font-size:.9rem;font-weight:600;border:1px solid transparent;white-space:nowrap}
+.pt-tab:hover{border-color:var(--card-border);color:inherit}
+.pt-tab.active{background:var(--accent);color:var(--accent-ink)}
+.progress{background:var(--card-border)}

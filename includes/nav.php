@@ -7,18 +7,24 @@ declare(strict_types=1);
 function public_nav(): array
 {
     return [
-        ['label' => 'Home',       'href' => 'index.php'],
-        ['label' => 'Profile',    'href' => 'profile.php'],
-        ['label' => 'Players',    'href' => 'players.php', 'multi' => true],
-        ['label' => 'Competitions', 'href' => 'competitions.php'],
-        ['label' => 'Matches',    'href' => 'matches.php'],
-        ['label' => 'Statistics', 'href' => 'statistics.php'],
-        ['label' => 'Career',     'href' => 'career.php'],
-        ['label' => 'Trophies',   'href' => 'trophies.php'],
-        ['label' => 'Gallery',    'href' => 'gallery.php'],
-        ['label' => 'Calendar',   'href' => 'calendar.php'],
-        ['label' => 'About',      'href' => 'about.php'],
-        ['label' => 'Join',       'href' => 'register.php', 'reg' => true],
+        ['label' => 'Home',         'href' => 'index.php'],
+        ['label' => 'Competitions', 'href' => 'competitions.php', 'global' => true],
+        ['label' => 'About',        'href' => 'about.php'],
+    ];
+}
+
+/** Per-player sections: shown as a tab strip on the player's page (they follow the player being viewed). */
+function player_tab_items(): array
+{
+    return [
+        'index.php'      => ['Overview',   'bi-house'],
+        'profile.php'    => ['Profile',    'bi-person-vcard'],
+        'matches.php'    => ['Matches',    'bi-calendar-event'],
+        'statistics.php' => ['Statistics', 'bi-bar-chart'],
+        'career.php'     => ['Career',     'bi-signpost-split'],
+        'trophies.php'   => ['Trophies',   'bi-trophy'],
+        'gallery.php'    => ['Gallery',    'bi-images'],
+        'calendar.php'   => ['Schedule',   'bi-calendar-week'],
     ];
 }
 
