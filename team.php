@@ -30,13 +30,16 @@ $m->execute([$t['id']]); $ms = $m->fetchAll();
 
   <div class="section-head" id="squad"><h2>Current Squad</h2><span class="text-muted-ft"><?= count($squad) ?> / <?= SQUAD_MAX ?> players</span></div>
   <?php if (!$squad): ?><p class="text-muted-ft mb-4">The squad has not been announced yet.</p><?php else: ?>
-  <div class="row-list mb-4"><?php foreach ($squad as $s): ?>
+  <div class="sw-tabs mb-3" role="tablist"><button class="sw-tab active" type="button" data-sqv="pitch"><i class="bi bi-diagram-3"></i> Pitch view</button><button class="sw-tab" type="button" data-sqv="list"><i class="bi bi-list-ul"></i> List view</button></div>
+  <div id="sqv-pitch" class="mb-4"><?= team_pitch($squad) ?></div>
+  <div class="row-list mb-4" id="sqv-list" hidden><?php foreach ($squad as $s): ?>
     <<?= $s['public_code'] ? 'a href="' . e(url($s['public_code'])) . '"' : 'div' ?> class="row-item squad-member">
       <span class="sq-no"><?= $s['shirt_number'] !== null ? (int)$s['shirt_number'] : '-' ?></span>
       <img class="sq-photo" src="<?= e(upload_url($s['photo'])) ?>" alt="">
       <span class="ri-main"><b><?= e($s['name']) ?><?= $s['is_captain'] ? ' <span class="badge bg-warning text-dark">C</span>' : '' ?></b><small><?= e(position_name($s['position'])) ?><?= $s['notes'] ? ' &middot; ' . e($s['notes']) : '' ?></small></span>
       <?= $s['public_code'] ? '<span class="ri-pill k-event">Profile</span>' : '' ?>
     </<?= $s['public_code'] ? 'a' : 'div' ?>><?php endforeach; ?></div><?php endif; ?>
+  <script>document.querySelectorAll('[data-sqv]').forEach(function(b){b.addEventListener('click',function(){var v=b.dataset.sqv;document.querySelectorAll('[data-sqv]').forEach(function(x){x.classList.toggle('active',x===b)});var p=document.getElementById('sqv-pitch'),l=document.getElementById('sqv-list');if(p)p.hidden=v!=='pitch';if(l)l.hidden=v!=='list';});});</script>
 
   <div class="section-head" id="records"><h2>Previous Records</h2></div>
   <?php if (!$records): ?><p class="text-muted-ft mb-4">No records added yet.</p><?php else: ?>

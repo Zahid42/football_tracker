@@ -609,3 +609,4 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
 .pt-tab:hover{border-color:var(--card-border);color:inherit}
 .pt-tab.active{background:var(--accent);color:var(--accent-ink)}
 .progress{background:var(--card-border)}
+[hidden]{display:none!important}

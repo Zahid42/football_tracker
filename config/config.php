@@ -83,4 +83,5 @@ try {
     ft_calendar_ensure();
     ft_comp_ensure();
     ft_members_ensure();
+    ft_squad_ensure();
 } catch (Throwable $e) { /* database not ready yet (e.g. installing) */ }

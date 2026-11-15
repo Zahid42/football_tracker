@@ -159,3 +159,56 @@ function calendar_team_names(): array
     $n = db()->query('SELECT name FROM teams UNION SELECT name FROM opponents ORDER BY name')->fetchAll(PDO::FETCH_COLUMN);
     return array_values(array_unique($n));
 }
+
+/** Adds the "starting XI" flag to the team squad once. */
+function ft_squad_ensure(): void
+{
+    $pdo = db();
+    $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'squad_starter_v'")->fetchColumn();
+    if ($v === '1') { return; }
+    if ($pdo->query("SHOW TABLES LIKE 'team_squad'")->fetch() && !$pdo->query("SHOW COLUMNS FROM team_squad LIKE 'is_starter'")->fetch()) {
+        $pdo->exec('ALTER TABLE team_squad ADD COLUMN is_starter TINYINT(1) NOT NULL DEFAULT 0');
+    }
+    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['squad_starter_v', '1']);
+}
+
+/**
+ * Pitch view of a team squad. The starting XI (flagged by the admin, or picked automatically from positions)
+ * stands on a horizontal pitch, own goal on the left; everyone else is listed as substitutes.
+ */
+function team_pitch(array $squad): string
+{
+    $line = ['GK' => ['gk', 8, 1], 'LB' => ['def', 26, 0], 'CB' => ['def', 26, 1], 'RB' => ['def', 26, 2], 'CDM' => ['dm', 40, 1], 'LM' => ['mid', 53, 0], 'CM' => ['mid', 53, 1],
+             'RM' => ['mid', 53, 2], 'CAM' => ['am', 66, 1], 'LW' => ['fwd', 82, 0], 'ST' => ['fwd', 85, 1], 'CF' => ['fwd', 85, 1], 'RW' => ['fwd', 82, 2]];
+    $info = fn(array $p) => $line[$p['position'] ?? ''] ?? ['mid', 53, 1];
+    $starters = array_values(array_filter($squad, fn($p) => !empty($p['is_starter'])));
+    if (!$starters) {
+        $want = ['gk' => 1, 'def' => 4, 'dm' => 0, 'mid' => 4, 'am' => 0, 'fwd' => 2]; $have = array_fill_keys(array_keys($want), 0); $ids = [];
+        foreach ($squad as $p) { $g = $info($p)[0]; if ($have[$g] < $want[$g] && count($ids) < 11) { $have[$g]++; $ids[$p['id']] = true; } }
+        foreach ($squad as $p) { if (count($ids) < 11 && !isset($ids[$p['id']])) { $ids[$p['id']] = true; } }
+        $starters = array_values(array_filter($squad, fn($p) => isset($ids[$p['id']])));
+    }
+    $starters = array_slice($starters, 0, 11);
+    $isStart = array_flip(array_column($starters, 'id'));
+    $subs = array_filter($squad, fn($p) => !isset($isStart[$p['id']]));
+    $groups = [];
+    foreach ($starters as $p) { $i = $info($p); $groups[$i[0]]['x'] = $i[1]; $groups[$i[0]]['p'][] = [$i[2], $p]; }
+    $h = '<div class="squad-view team-pitch"><div class="pitch pitch-h">' . pitch_svg(true);
+    foreach ($groups as $g) {
+        usort($g['p'], fn($a, $b) => [$a[0], $a[1]['shirt_number'] ?? 99] <=> [$b[0], $b[1]['shirt_number'] ?? 99]);
+        $n = count($g['p']);
+        foreach ($g['p'] as $k => [, $p]) {
+            $y = $n === 1 ? 50 : 14 + (72 * $k / ($n - 1));
+            $name = !empty($p['public_code']) ? '<a class="pname" href="' . e(url($p['public_code'])) . '">' . e($p['name']) . '</a>' : '<span class="pname">' . e($p['name']) . '</span>';
+            $h .= '<div class="pl' . (($p['position'] ?? '') === 'GK' ? ' is-gk' : '') . (!empty($p['public_code']) ? ' is-reg' : '') . '" style="left:' . $g['x'] . '%;top:' . round($y, 1) . '%" title="' . e($p['name'] . ' - ' . position_name($p['position'] ?? null)) . '">'
+                . '<span class="shirt">' . e($p['shirt_number'] ?? '') . (!empty($p['is_captain']) ? '<i class="cap">C</i>' : '') . '</span>' . $name . '<span class="ppos">' . e($p['position'] ?? '') . '</span></div>';
+        }
+    }
+    $h .= '</div>';
+    if ($subs) {
+        $h .= '<div class="bench"><div class="bench-title"><i class="bi bi-arrow-repeat"></i> Substitutes &amp; reserves</div><div class="bench-list">';
+        foreach ($subs as $p) { $h .= '<span class="bench-p"><b>' . e($p['shirt_number'] ?? '-') . '</b> ' . e($p['name']) . ' <small>' . e($p['position'] ?? '') . '</small></span>'; }
+        $h .= '</div></div>';
+    }
+    return $h . '</div>';
+}
