@@ -40,3 +40,14 @@
 })();
 
 document.addEventListener('click',function(e){var c=e.target.closest('[data-copy]');if(!c){return;}var t=location.origin+c.getAttribute('data-copy');try{navigator.clipboard.writeText(t);c.dataset.old=c.dataset.old||c.innerHTML;c.innerHTML='<i class="bi bi-check2"></i> Copied';setTimeout(function(){c.innerHTML=c.dataset.old},1200)}catch(x){prompt('Copy this link',t)}});
+
+/* PWA: register the service worker and offer "Install app" where the browser supports it */
+(function () {
+  if ('serviceWorker' in navigator && window.FT_SW) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register(window.FT_SW).catch(function () {}); });
+  }
+  var deferred = null, btn = document.getElementById('appInstall');
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; if (btn) { btn.hidden = false; } });
+  if (btn) { btn.addEventListener('click', function () { if (!deferred) { return; } deferred.prompt(); deferred.userChoice.finally(function () { deferred = null; btn.hidden = true; }); }); }
+  window.addEventListener('appinstalled', function () { if (btn) { btn.hidden = true; } });
+})();

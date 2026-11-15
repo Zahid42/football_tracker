@@ -585,3 +585,17 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
 .dash-tile i{font-size:1.8rem;color:var(--accent)}
 .dash-tile:hover{transform:translateY(-2px);border-color:var(--accent);color:inherit}
 .dash-tile .badge{position:absolute;top:8px;right:10px}
+
+/* ---- mobile app feel (installed PWA / phones) ---- */
+.app-tabbar{display:none}
+.app-install{position:fixed;right:14px;bottom:14px;z-index:1040;box-shadow:var(--shadow)}
+@media (max-width:768px){
+  body.public-body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+  .app-tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:1030;background:var(--card);border-top:1px solid var(--card-border);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -6px 20px rgba(0,0,0,.18)}
+  .app-tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 7px;color:var(--muted);text-decoration:none;font-size:.68rem;font-weight:600}
+  .app-tabbar a i{font-size:1.3rem;line-height:1}
+  .app-tabbar a.active{color:var(--accent)}
+  .app-install{bottom:calc(74px + env(safe-area-inset-bottom))}
+  .ft-footer{display:none}
+}
+@media (display-mode:standalone){ .ft-footer{display:none} .navbar-toggler{display:inline-block} }
