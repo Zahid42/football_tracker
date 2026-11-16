@@ -14,9 +14,13 @@ $counts = [
   <h1><?= e(setting('site_title', 'Football Tracker')) ?></h1>
   <p>Find any player, team or competition by name or 6-digit ID.</p>
   <?= search_box('homeSearch', 'ft-search-lg') ?>
-  <div class="home-stats">
-    <?php foreach ($counts as [$label, $n, $icon, $href]): ?>
-      <a class="home-stat" href="<?= e(url($href)) ?>"><i class="bi <?= e($icon) ?>"></i><b><?= number_format($n) ?></b><span><?= e($label) ?></span></a>
+  <div class="home-stats" style="grid-template-columns:repeat(<?= max(1, count(array_filter(['players', 'teams', 'competitions'], fn($k) => setting('home_stat_' . $k . '_show', '1') === '1'))) ?>,1fr)">
+    <?php foreach ($counts as [$label, $n, $icon, $href]):
+        $k = strtolower($label);
+        if (setting('home_stat_' . $k . '_show', '1') !== '1') { continue; }
+        $link = setting('home_stat_' . $k . '_link', '1') === '1';
+        $tag = $link ? 'a href="' . e(url($href)) . '"' : 'div'; ?>
+      <<?= $tag ?> class="home-stat<?= $link ? '' : ' no-link' ?>"><i class="bi <?= e($icon) ?>"></i><b><?= number_format($n) ?></b><span><?= e($label) ?></span></<?= $link ? 'a' : 'div' ?>>
     <?php endforeach; ?>
   </div>
 </div>
