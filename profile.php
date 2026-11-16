@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/config/config.php';
 $pageTitle = 'Profile'; $activePage = 'profile.php';
 require __DIR__ . '/includes/header.php';
-$p = get_profile(); $o = get_overall_stats(); $teams = get_team_history(); $trophies = get_trophies();
+$p = get_profile(); $o = get_overall_stats();
 echo public_page_title('Player Profile', $p['full_name']);
 ?>
 <div class="container py-4">
@@ -18,11 +18,5 @@ echo public_page_title('Player Profile', $p['full_name']);
     <div class="col-lg-4"><div class="ft-card p-4 h-100"><h3 class="section-title h6">Biography</h3><p><?= $p['bio'] ? nl2br(e($p['bio'])) : 'No biography yet.' ?></p>
       <?php if (!empty($p['playing_style'])): ?><h3 class="section-title h6 mt-3">Playing style</h3><p class="mb-0"><?= e($p['playing_style']) ?></p><?php endif; ?></div></div>
   </div>
-  <h2 class="section-title h4 mb-3">Career totals</h2>
-  <?= summary_cards($o) ?><?= overall_panels($o) ?>
-  <h2 class="section-title h4 mb-3">Teams</h2>
-  <div class="timeline mb-5"><?php foreach ($teams as $t) { echo team_timeline_item($t); } ?><?php if (!$teams): ?><p class="text-muted-ft">No teams yet.</p><?php endif; ?></div>
-  <h2 class="section-title h4 mb-3">Trophies &amp; achievements (<?= count($trophies) ?>)</h2>
-  <div class="row g-3"><?php foreach ($trophies as $t): ?><div class="col-12 col-md-6 col-xl-4"><?= trophy_card($t) ?></div><?php endforeach; ?></div>
 </div>
 <?php require __DIR__ . '/includes/footer.php';
