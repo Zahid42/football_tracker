@@ -644,3 +644,6 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
 .home-search p{color:var(--muted);margin-bottom:1.6rem}
 .home-search .ft-search-lg{width:100%}
 @media(max-width:576px){.ft-search .fs-type{max-width:92px;font-size:.74rem}}
+.ft-navbar .btn{white-space:nowrap}
+.nav-search.ft-search{flex:0 1 300px}
+@media(max-width:991px){.nav-search.ft-search{flex:1 1 auto}}

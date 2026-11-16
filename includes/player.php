@@ -155,7 +155,7 @@ function ft_code_map(string $table): array
 function player_url_by_id(int $id): string
 {
     $c = ft_code_map('players')[$id] ?? null;
-    return $c ? url((string)$c) : url('profile.php?player=' . $id);
+    return $c ? url((string)$c) : url('player-home.php?player=' . $id);
 }
 
 function team_url_by_id(int $id): string

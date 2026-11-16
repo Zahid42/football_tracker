@@ -17,7 +17,8 @@ function public_nav(): array
 function player_tab_items(): array
 {
     return [
-        'profile.php'    => ['Overview',   'bi-person-vcard'],
+        'player-home.php' => ['Overview',  'bi-house'],
+        'profile.php'    => ['Profile',    'bi-person-vcard'],
         'matches.php'    => ['Matches',    'bi-calendar-event'],
         'statistics.php' => ['Statistics', 'bi-bar-chart'],
         'career.php'     => ['Career',     'bi-signpost-split'],

@@ -33,5 +33,5 @@ $activePage = $activePage ?? basename($_SERVER['SCRIPT_NAME']);
 </head>
 <body class="public-body">
 <?php require __DIR__ . '/navbar.php'; ?>
-<?php if ($activePage !== 'index.php' && array_key_exists($activePage, player_tab_items()) || $activePage === 'match-details.php') { echo player_tabs($activePage === 'match-details.php' ? 'matches.php' : $activePage); } ?>
+<?php if ($activePage !== 'index.php' && $activePage !== 'player-home.php' && array_key_exists($activePage, player_tab_items()) || $activePage === 'match-details.php') { echo player_tabs($activePage === 'match-details.php' ? 'matches.php' : $activePage); } ?>
 <main>

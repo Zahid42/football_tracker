@@ -6,7 +6,7 @@ $code = preg_replace('/\D/', '', (string)($_GET['c'] ?? ''));
 if (strlen($code) === 6) {
     $st = db()->prepare("SELECT id FROM players WHERE public_code = ? AND approval_status = 'approved' AND is_active = 1");
     $st->execute([$code]);
-    if ($id = $st->fetchColumn()) { $_GET['player'] = (string)$id; require __DIR__ . '/profile.php'; exit; }
+    if ($id = $st->fetchColumn()) { $_GET['player'] = (string)$id; require __DIR__ . '/player-home.php'; exit; }
     $st = db()->prepare('SELECT id FROM teams WHERE public_code = ?');
     $st->execute([$code]);
     if ($id = $st->fetchColumn()) { $_GET['id'] = (string)$id; require __DIR__ . '/team.php'; exit; }
