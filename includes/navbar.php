@@ -12,11 +12,7 @@ declare(strict_types=1);
       <i class="bi bi-list"></i>
     </button>
     <div class="collapse navbar-collapse" id="publicNav">
-      <form class="nav-search ms-lg-auto my-2 my-lg-0" action="<?= e(url('search.php')) ?>" method="get" role="search" autocomplete="off">
-        <i class="bi bi-search"></i>
-        <input type="search" name="q" id="navSearch" placeholder="Search name or ID" maxlength="60" aria-label="Search players, teams by name or ID" aria-autocomplete="list" aria-controls="navSuggest" value="<?= e($activePage === 'search.php' ? (string)($_GET['q'] ?? '') : '') ?>">
-        <div class="nav-suggest" id="navSuggest" role="listbox" hidden></div>
-      </form>
+      <?php if ($activePage !== 'index.php') { echo search_box('navSearch', 'nav-search ms-lg-auto my-2 my-lg-0'); } else { echo '<span class="ms-lg-auto"></span>'; } ?>
       <ul class="navbar-nav align-items-lg-center gap-lg-1 ms-lg-3">
         <?php $multi = count(players_list()) > 1; foreach (public_nav() as $item): if ((!empty($item['multi']) && !$multi) || (!empty($item['reg']) && setting('registration_open', '1') !== '1')) { continue; } ?>
           <li class="nav-item">

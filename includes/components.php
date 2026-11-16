@@ -285,3 +285,18 @@ function player_tabs(string $active): string
     }
     return $h . '</div></div></div>';
 }
+
+/** Search box with a "what are you looking for" dropdown (All / Players / Teams / Competitions) and live suggestions. */
+function search_box(string $id, string $class = ''): string
+{
+    $type = in_array($_GET['type'] ?? '', ['players', 'teams', 'competitions'], true) ? $_GET['type'] : 'all';
+    $q = (basename($_SERVER['SCRIPT_NAME']) === 'search.php') ? (string)($_GET['q'] ?? '') : '';
+    $opts = ['all' => 'All', 'players' => 'Players', 'teams' => 'Teams', 'competitions' => 'Competitions'];
+    $h = '<form class="ft-search ' . e($class) . '" data-ft-search action="' . e(url('search.php')) . '" method="get" role="search" autocomplete="off">'
+       . '<select name="type" class="fs-type" aria-label="Search in">';
+    foreach ($opts as $k => $l) { $h .= '<option value="' . $k . '"' . ($k === $type ? ' selected' : '') . '>' . $l . '</option>'; }
+    $h .= '</select><span class="fs-box"><i class="bi bi-search"></i>'
+       . '<input type="search" name="q" id="' . e($id) . '" placeholder="Search by name or 6-digit ID" maxlength="60" aria-label="Search by name or ID" aria-autocomplete="list" value="' . e($q) . '">'
+       . '<div class="nav-suggest" role="listbox" hidden></div></span><button class="btn btn-accent fs-go" type="submit" aria-label="Search"><i class="bi bi-arrow-right"></i></button></form>';
+    return $h;
+}

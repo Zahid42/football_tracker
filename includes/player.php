@@ -41,7 +41,7 @@ function public_player_id(): int
     $id = (int)($_GET['player'] ?? 0);
     if ($id) {
         $p = get_player($id);
-        if ($p && $p['is_active']) { return $id; }
+        if ($p && $p['is_active'] && $p['approval_status'] === 'approved') { return $id; }
     }
     return featured_player_id();
 }
@@ -368,7 +368,7 @@ function player_filter_bar(array $f, bool $admin, array $keep = []): string
 /**
  * Site-wide search by name or 6-digit ID. Returns ['players' => [], 'teams' => [], 'competitions' => []].
  */
-function site_search(string $q, int $limit = 20): array
+function site_search(string $q, int $limit = 20, string $type = 'all'): array
 {
     $q = trim($q);
     $out = ['players' => [], 'teams' => [], 'competitions' => []];
@@ -377,15 +377,21 @@ function site_search(string $q, int $limit = 20): array
     $digits = preg_replace('/\D/', '', ltrim($q, '#'));
     $idLike = $digits !== '' ? '%' . $digits . '%' : null;
 
+    if ($type === 'all' || $type === 'players') {
     $sql = "SELECT p.id, p.full_name, p.nickname, p.preferred_position, p.photo, p.public_code FROM players p WHERE p.approval_status = 'approved' AND p.is_active = 1 AND (p.full_name LIKE ? OR p.nickname LIKE ?" . ($idLike ? ' OR p.public_code LIKE ?' : '') . ') ORDER BY (p.public_code = ?) DESC, p.full_name LIMIT ' . $limit;
     $st = db()->prepare($sql); $st->execute(array_merge([$like, $like], $idLike ? [$idLike] : [], [$digits]));
     $out['players'] = $st->fetchAll();
+    }
+    if ($type === 'all' || $type === 'teams') {
 
     $sql = "SELECT t.id, t.name, t.short_name, t.logo, t.public_code FROM teams t WHERE t.status = 'active' AND (t.name LIKE ? OR t.short_name LIKE ?" . ($idLike ? ' OR t.public_code LIKE ?' : '') . ') ORDER BY (t.public_code = ?) DESC, t.name LIMIT ' . $limit;
     $st = db()->prepare($sql); $st->execute(array_merge([$like, $like], $idLike ? [$idLike] : [], [$digits]));
     $out['teams'] = $st->fetchAll();
+    }
+    if ($type === 'all' || $type === 'competitions') {
 
     $st = db()->prepare('SELECT id, name, type FROM competitions WHERE name LIKE ? ORDER BY name LIMIT ' . $limit); $st->execute([$like]);
     $out['competitions'] = $st->fetchAll();
+    }
     return $out;
 }

@@ -622,3 +622,25 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
 .ns-item span{display:flex;flex-direction:column;min-width:0}.ns-item b{font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ns-item small{color:var(--muted);font-size:.74rem}
 .ns-item:hover,.ns-item.active{background:rgba(var(--accent-rgb),.12);color:inherit}
 .ns-empty{padding:10px 14px;color:var(--muted);font-size:.9rem}
+
+/* ---- search box with category dropdown ---- */
+.ft-search{display:flex;align-items:center;gap:0;min-width:0;background:var(--card);border:1px solid var(--card-border);border-radius:999px;padding:2px}
+.ft-search:focus-within{border-color:var(--accent);box-shadow:0 0 0 .2rem rgba(var(--accent-rgb),.2)}
+.ft-search .fs-type{flex:none;border:0;background:rgba(var(--accent-rgb),.12);color:var(--text);font-weight:600;font-size:.82rem;border-radius:999px;padding:5px 8px;outline:0;cursor:pointer;max-width:118px}
+.ft-search .fs-type option{background:var(--card);color:var(--text)}
+.ft-search .fs-box{position:relative;flex:1 1 auto;min-width:0;display:flex;align-items:center}
+.ft-search .fs-box>i{position:absolute;left:10px;color:var(--muted);pointer-events:none}
+.ft-search input{width:100%;border:0;background:transparent;color:var(--text);padding:6px 8px 6px 30px;font-size:.9rem;outline:0}
+.ft-search .fs-go{flex:none;border-radius:999px;padding:3px 11px;line-height:1.5}
+.nav-search.ft-search{flex:0 1 380px}
+.ft-search-lg{max-width:720px;padding:5px;margin-left:auto;margin-right:auto}
+.ft-search-lg .fs-type{font-size:.95rem;padding:10px 14px;max-width:150px}
+.ft-search-lg input{font-size:1.1rem;padding:12px 10px 12px 38px}
+.ft-search-lg .fs-box>i{left:14px;font-size:1.1rem}
+.ft-search-lg .fs-go{padding:8px 18px;font-size:1.1rem}
+.ft-search-lg .nav-suggest{top:calc(100% + 10px)}
+.home-search{min-height:62vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem 0}
+.home-search h1{font-size:clamp(2rem,6vw,3.4rem);font-weight:800;margin-bottom:.4rem}
+.home-search p{color:var(--muted);margin-bottom:1.6rem}
+.home-search .ft-search-lg{width:100%}
+@media(max-width:576px){.ft-search .fs-type{max-width:92px;font-size:.74rem}}
