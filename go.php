@@ -1,5 +1,5 @@
 <?php
-/** Resolves a 6-digit public ID (e.g. /482913) to a player profile or a team page. */
+/** Resolves a 6-digit public ID (e.g. /482913) to a player, team or competition page. */
 declare(strict_types=1);
 require_once __DIR__ . '/config/config.php';
 $code = preg_replace('/\D/', '', (string)($_GET['c'] ?? ''));
@@ -10,6 +10,9 @@ if (strlen($code) === 6) {
     $st = db()->prepare('SELECT id FROM teams WHERE public_code = ?');
     $st->execute([$code]);
     if ($id = $st->fetchColumn()) { $_GET['id'] = (string)$id; require __DIR__ . '/team.php'; exit; }
+    $st = db()->prepare('SELECT id FROM competitions WHERE public_code = ?');
+    $st->execute([$code]);
+    if ($id = $st->fetchColumn()) { $_GET['c'] = $code; require __DIR__ . '/competitions.php'; exit; }
 }
 http_response_code(404);
 $pageTitle = 'Not found'; $activePage = '';

@@ -117,13 +117,13 @@ function ft_codes_ensure(): void
     static $done = false;
     if ($done) { return; }
     $done = true;
-    foreach (['players', 'teams'] as $t) {   // 1) make sure both columns exist
+    foreach (['players', 'teams', 'competitions'] as $t) {   // 1) make sure both columns exist
         try { db()->query("SELECT public_code FROM $t LIMIT 1"); }
         catch (PDOException $e) { db()->exec("ALTER TABLE $t ADD COLUMN public_code CHAR(6) NULL, ADD UNIQUE KEY uq_{$t}_code (public_code)"); }
     }
     // teams may share a name (each player can keep his own copy of a team)
     if (db()->query("SHOW INDEX FROM teams WHERE Key_name = 'uq_team_name'")->fetch()) { db()->exec('ALTER TABLE teams DROP INDEX uq_team_name'); }
-    foreach (['players', 'teams'] as $t) {   // 2) fill the gaps
+    foreach (['players', 'teams', 'competitions'] as $t) {   // 2) fill the gaps
         foreach (db()->query("SELECT id FROM $t WHERE public_code IS NULL")->fetchAll(PDO::FETCH_COLUMN) as $id) {
             db()->prepare("UPDATE $t SET public_code = ? WHERE id = ?")->execute([ft_new_code(), $id]);
         }
@@ -132,10 +132,10 @@ function ft_codes_ensure(): void
 
 function ft_new_code(): string
 {
-    $chk = db()->prepare('SELECT (SELECT COUNT(*) FROM players WHERE public_code = :a) + (SELECT COUNT(*) FROM teams WHERE public_code = :b)');
+    $chk = db()->prepare('SELECT (SELECT COUNT(*) FROM players WHERE public_code = :a) + (SELECT COUNT(*) FROM teams WHERE public_code = :b) + (SELECT COUNT(*) FROM competitions WHERE public_code = :c)');
     for ($i = 0; $i < 50; $i++) {
         $c = (string)random_int(100000, 999999);
-        $chk->execute([':a' => $c, ':b' => $c]);
+        $chk->execute([':a' => $c, ':b' => $c, ':c' => $c]);
         if ((int)$chk->fetchColumn() === 0) { return $c; }
     }
     throw new RuntimeException('Could not generate a unique ID');
@@ -150,6 +150,12 @@ function ft_code_map(string $table): array
         $maps[$table] = db()->query("SELECT id, public_code FROM $table")->fetchAll(PDO::FETCH_KEY_PAIR);
     }
     return $maps[$table];
+}
+
+function competition_url_by_id(int $id): string
+{
+    $c = ft_code_map('competitions')[$id] ?? null;
+    return url('competitions.php?c=' . ($c ?: $id));
 }
 
 function player_url_by_id(int $id): string
@@ -390,7 +396,7 @@ function site_search(string $q, int $limit = 20, string $type = 'all'): array
     }
     if ($type === 'all' || $type === 'competitions') {
 
-    $st = db()->prepare('SELECT id, name, type FROM competitions WHERE name LIKE ? ORDER BY name LIMIT ' . $limit); $st->execute([$like]);
+    $st = db()->prepare('SELECT id, name, type, public_code FROM competitions WHERE (name LIKE ?' . ($idLike ? ' OR public_code LIKE ?' : '') . ') ORDER BY (public_code = ?) DESC, name LIMIT ' . $limit); $st->execute(array_merge([$like], $idLike ? [$idLike] : [], [$digits]));
     $out['competitions'] = $st->fetchAll();
     }
     return $out;

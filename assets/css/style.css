@@ -662,3 +662,20 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
 .home-stat span{font-size:.72rem;letter-spacing:.05em}
 @media(max-width:480px){.home-stat{flex-direction:column;gap:0;padding:6px 4px}.home-stat i{display:none}}
 .home-stat.no-link{cursor:default}.home-stat.no-link:hover{transform:none;border-color:var(--card-border)}
+
+/* Knockout bracket */
+.ko-wrap{overflow-x:auto;padding-bottom:.5rem}
+.ko-bracket{display:flex;gap:1.5rem;min-width:max-content;align-items:stretch}
+.ko-round{display:flex;flex-direction:column;min-width:190px}
+.ko-title{font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.6rem;text-align:center}
+.ko-ties{display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:.75rem}
+.ko-tie{background:var(--card);border:1px solid var(--card-border);border-radius:10px;overflow:hidden}
+.ko-team{display:flex;justify-content:space-between;gap:.5rem;padding:.4rem .7rem;font-size:.9rem}
+.ko-team + .ko-team{border-top:1px solid var(--card-border)}
+.ko-team.win{font-weight:700;background:rgba(var(--accent-rgb),.14)}
+.ko-team.bye{opacity:.45}
+.ko-sc{font-weight:700}
+.ko-champ .ko-team{justify-content:center;color:var(--accent)}
+.comp-susp td{opacity:.55;text-decoration:line-through}
+.comp-susp td:last-child{text-decoration:none}
+.adj-neg{color:#e5534b;font-weight:600}.adj-pos{color:#2ea043;font-weight:600}

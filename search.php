@@ -4,11 +4,11 @@ require_once __DIR__ . '/config/config.php';
 $q = trim((string)($_GET['q'] ?? ''));
 $type = in_array($_GET['type'] ?? '', ['players', 'teams', 'competitions'], true) ? $_GET['type'] : 'all';
 if ($q !== '' && preg_match('/^#?\d{6}$/', $q)) {
-    $only = $type === 'all' ? ['players', 'teams'] : array_intersect([$type], ['players', 'teams']);                 // exact 6-digit ID: go straight there
+    $only = $type === 'all' ? ['players', 'teams', 'competitions'] : [$type];                 // exact 6-digit ID: go straight there
     $code = ltrim($q, '#');
-    foreach (['players' => 'player_url_by_id', 'teams' => 'team_url_by_id'] as $tbl => $fn) {
+    foreach (['players' => 'player_url_by_id', 'teams' => 'team_url_by_id', 'competitions' => 'competition_url_by_id'] as $tbl => $fn) {
         if (!in_array($tbl, $only, true)) { continue; }
-        $st = db()->prepare("SELECT id FROM $tbl WHERE public_code = ?" . ($tbl === 'players' ? " AND approval_status = 'approved' AND is_active = 1" : " AND status = 'active'")); $st->execute([$code]);
+        $st = db()->prepare("SELECT id FROM $tbl WHERE public_code = ?" . ($tbl === 'players' ? " AND approval_status = 'approved' AND is_active = 1" : ($tbl === 'teams' ? " AND status = 'active'" : ''))); $st->execute([$code]);
         if ($id = $st->fetchColumn()) { header('Location: ' . $fn((int)$id)); exit; }
     }
 }
@@ -31,6 +31,6 @@ echo public_page_title('Search', $q === '' ? 'Find players, teams and competitio
       <img class="sq-photo" src="<?= e(upload_url($t['logo'])) ?>" alt=""><span class="ri-main"><b><?= e($t['name']) ?></b><small><?= e((string)$t['short_name']) ?></small></span>
       <span class="ri-pill k-event">#<?= e((string)$t['public_code']) ?></span></a><?php endforeach; ?></div><?php endif; ?>
   <?php if ($r['competitions']): ?><h2 class="h5 section-title mb-3"><i class="bi bi-trophy"></i> Competitions</h2><div class="row-list mb-4">
-    <?php foreach ($r['competitions'] as $c): ?><a class="row-item" href="<?= e(url('competitions.php?c=' . (int)$c['id'])) ?>"><span class="ri-main"><b><?= e($c['name']) ?></b><small><?= e($c['type']) ?></small></span><span class="ri-pill k-fixture">Table</span></a><?php endforeach; ?></div><?php endif; ?>
+    <?php foreach ($r['competitions'] as $c): ?><a class="row-item" href="<?= e(competition_url_by_id((int)$c['id'])) ?>"><span class="ri-main"><b><?= e($c['name']) ?></b><small><?= e($c['type']) ?></small></span><span class="ri-pill k-event">#<?= e((string)$c['public_code']) ?></span></a><?php endforeach; ?></div><?php endif; ?>
 </div>
 <?php require __DIR__ . '/includes/footer.php';

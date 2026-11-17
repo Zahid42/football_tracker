@@ -8,12 +8,14 @@ require __DIR__ . '/includes/header.php';
 $comps = db()->query('SELECT * FROM competitions ORDER BY (type IN ("League","Tournament")) DESC, name')->fetchAll();
 $cid = (int)($_GET['c'] ?? 0);
 $cur = null;
-foreach ($comps as $c) { if ((int)$c['id'] === $cid) { $cur = $c; } }
+foreach ($comps as $c) { if ((int)$c['id'] === $cid || ($cid >= 100000 && (int)($c['public_code'] ?? 0) === $cid)) { $cur = $c; } }
 if (!$cur && $comps) { $cur = $comps[0]; }
-$tab = ($_GET['t'] ?? '') === 'players' ? 'players' : 'table';
+$hasKo = $cur && !empty($cur['knockout']) && comp_ko_rows((int)$cur['id']);
+$tab = in_array($_GET['t'] ?? '', ['players', 'bracket'], true) ? $_GET['t'] : 'table';
+if ($tab === 'bracket' && !$hasKo) { $tab = 'table'; }
 $mode = $cur ? (string)$cur['format'] : 'League';
 if (isset($_GET['mode']) && in_array($_GET['mode'], ['League', 'Groups'], true)) { $mode = $_GET['mode']; }
-$self = fn(array $q) => e(url('competitions.php?' . http_build_query(array_merge(['c' => $cur['id'] ?? 0, 't' => $tab, 'mode' => $mode], $q))));
+$self = fn(array $q) => e(url('competitions.php?' . http_build_query(array_merge(['c' => ($cur['public_code'] ?? '') ?: ($cur['id'] ?? 0), 't' => $tab, 'mode' => $mode], $q))));
 
 echo switch_bar('competitions');
 echo public_page_title('Competitions', 'League tables, group-stage tournaments and player leaderboards');
@@ -22,14 +24,16 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
 <?php if (!$comps): ?><p class="text-muted-ft">No competitions yet. The admin adds them in Admin &rarr; Competitions.</p><?php else: ?>
   <form method="get" class="d-flex flex-wrap gap-2 align-items-center mb-3">
     <select class="form-select w-auto" name="c" onchange="this.form.submit()" aria-label="Competition">
-      <?php foreach ($comps as $c): ?><option value="<?= (int)$c['id'] ?>"<?= (int)$c['id'] === (int)$cur['id'] ? ' selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
+      <?php foreach ($comps as $c): ?><option value="<?= e((string)($c['public_code'] ?: $c['id'])) ?>"<?= (int)$c['id'] === (int)$cur['id'] ? ' selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
     </select>
     <input type="hidden" name="t" value="<?= e($tab) ?>">
     <div class="sw-tabs ms-auto">
       <a class="sw-tab<?= $tab === 'table' ? ' active' : '' ?>" href="<?= $self(['t' => 'table']) ?>"><i class="bi bi-table"></i> Table</a>
       <a class="sw-tab<?= $tab === 'players' ? ' active' : '' ?>" href="<?= $self(['t' => 'players']) ?>"><i class="bi bi-people"></i> Player stats</a>
+      <?php if ($hasKo): ?><a class="sw-tab<?= $tab === 'bracket' ? ' active' : '' ?>" href="<?= $self(['t' => 'bracket']) ?>"><i class="bi bi-diagram-3"></i> Bracket</a><?php endif; ?>
     </div>
   </form>
+  <?php if (!empty($cur['public_code'])): ?><p class="small text-muted-ft mb-1">Competition ID <b>#<?= e((string)$cur['public_code']) ?></b><?= $cur['format'] === 'Groups' ? ' &middot; ' . (int)$cur['num_groups'] . ' groups of ' . (int)$cur['teams_per_group'] . ' teams' : ($cur['max_teams'] ? ' &middot; ' . (int)$cur['max_teams'] . ' teams' : '') ?></p><?php endif; ?>
   <?php if (!empty($cur['description'])): ?><p class="text-muted-ft"><?= e($cur['description']) ?></p><?php endif; ?>
 
   <?php if ($tab === 'table'): ?>
@@ -47,11 +51,12 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
           <thead><tr><th>#</th><th>Team</th><th class="text-center">P</th><th class="text-center">W</th><th class="text-center">D</th><th class="text-center">L</th><th class="text-center">GF</th><th class="text-center">GA</th><th class="text-center">GD</th><th class="text-center">Pts</th><th class="d-none d-md-table-cell">Form</th></tr></thead>
           <tbody>
           <?php foreach ($rows as $i => $r): ?>
-            <tr class="<?= $i === 0 ? 'comp-first' : '' ?><?= $mode === 'Groups' && $i < 2 ? ' comp-qual' : '' ?>">
-              <td><?= $i + 1 ?></td><td class="fw-semibold"><?= e($r['team']) ?></td>
+            <?php $qn = $mode === 'Groups' ? (int)$cur['qualify_per_group'] : (int)$cur['ko_teams']; ?>
+            <tr class="<?= $i === 0 && !$r['susp'] ? 'comp-first' : '' ?><?= !$r['susp'] && $qn && $i < $qn && !empty($cur['knockout']) ? ' comp-qual' : '' ?><?= $r['susp'] ? ' comp-susp' : '' ?>">
+              <td><?= $i + 1 ?></td><td class="fw-semibold"><?= e($r['team']) ?><?= $r['susp'] ? ' <span class="badge text-bg-danger">Suspended</span>' : '' ?></td>
               <td class="text-center"><?= $r['p'] ?></td><td class="text-center"><?= $r['w'] ?></td><td class="text-center"><?= $r['d'] ?></td><td class="text-center"><?= $r['l'] ?></td>
               <td class="text-center"><?= $r['gf'] ?></td><td class="text-center"><?= $r['ga'] ?></td><td class="text-center"><?= $r['gd'] > 0 ? '+' : '' ?><?= $r['gd'] ?></td>
-              <td class="text-center fw-bold"><?= $r['pts'] ?></td>
+              <td class="text-center fw-bold"><?= $r['pts'] ?><?php if ($r['adj']): ?> <sup class="<?= $r['adj'] < 0 ? 'adj-neg' : 'adj-pos' ?>" title="<?= e($r['why']) ?>"><?= $r['adj'] > 0 ? '+' : '' ?><?= $r['adj'] ?></sup><?php endif; ?></td>
               <td class="d-none d-md-table-cell"><?php foreach ($r['form'] as $f): ?><span class="sr-res result-<?= ['W' => 'win', 'D' => 'draw', 'L' => 'loss'][$f] ?> form-dot"><?= $f ?></span><?php endforeach; ?></td>
             </tr>
           <?php endforeach; ?>
@@ -59,7 +64,9 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
       </div></div>
     <?php endforeach; ?>
     </div>
-    <?php if ($mode === 'Groups'): ?><p class="text-muted-ft small mt-2"><span class="comp-key"></span> Top two of each group qualify. Win 3 pts, draw 1.</p><?php else: ?><p class="text-muted-ft small mt-2">Win 3 pts, draw 1. Sorted by points, goal difference, goals scored.</p><?php endif; ?>
+    <?php $notes = []; foreach ($groups as $g) { foreach ($g as $r) { if ($r['adj']) { $notes[] = $r['team'] . ': ' . ($r['adj'] > 0 ? '+' : '') . $r['adj'] . ' pts' . ($r['why'] !== '' ? ' (' . $r['why'] . ')' : ''); } } }
+    if ($notes): ?><p class="small mt-2"><b>Point adjustments:</b> <?= e(implode('; ', $notes)) ?></p><?php endif; ?>
+    <?php if ($mode === 'Groups'): ?><p class="text-muted-ft small mt-2"><span class="comp-key"></span> Top <?= (int)$cur['qualify_per_group'] ?> of each group qualify. Win 3 pts, draw 1.</p><?php else: ?><p class="text-muted-ft small mt-2">Win 3 pts, draw 1. Sorted by points, goal difference, goals scored.</p><?php endif; ?>
 
     <?php $res = comp_results((int)$cur['id']); if ($res): ?>
       <h2 class="h5 section-title mt-4 mb-3">Fixtures &amp; results</h2>
@@ -71,6 +78,9 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
         </div><?php endforeach; ?></div>
     <?php endif; ?>
 
+  <?php elseif ($tab === 'bracket'): ?>
+    <h2 class="h5 section-title mb-3"><i class="bi bi-diagram-3"></i> Knockout bracket</h2>
+    <?= comp_bracket_html((int)$cur['id']) ?>
   <?php else: ?>
     <?php $ps = comp_player_stats((int)$cur['id']); ?>
     <?php if (!$ps): ?><p class="text-muted-ft">No player statistics are recorded for this competition yet. Tag matches with this competition when adding them.</p><?php else:

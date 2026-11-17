@@ -15,7 +15,7 @@ CREATE DATABASE IF NOT EXISTS `football_tracker`
 USE `football_tracker`;
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS `comp_matches`, `comp_teams`, `calendar_events`, `match_squad`, `assists`, `goals`, `match_statistics`, `matches`, `gallery`,
+DROP TABLE IF EXISTS `comp_ko`, `comp_matches`, `comp_teams`, `calendar_events`, `match_squad`, `assists`, `goals`, `match_statistics`, `matches`, `gallery`,
   `trophies`, `competitions`, `venues`, `opponents`, `player_teams`, `players`, `profile`, `teams`,
   `seasons`, `settings`, `admins`;
 SET FOREIGN_KEY_CHECKS = 1;

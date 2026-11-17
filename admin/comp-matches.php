@@ -23,6 +23,9 @@ comp_admin_page('comp-matches.php', [
     'before_save' => function (array &$d, ?array $ex) {
         if (mb_strtolower($d['home_team']) === mb_strtolower($d['away_team'])) { return 'Team 1 and Team 2 must be different.'; }
         if (($d['home_score'] === null) !== ($d['away_score'] === null)) { return 'Enter both scores, or leave both blank.'; }
+        $q = db()->prepare("SELECT team_name FROM comp_teams WHERE competition_id = ? AND status = 'suspended' AND team_name IN (?, ?)");
+        $q->execute([admin_comp_id(), $d['home_team'], $d['away_team']]);
+        if ($bad = $q->fetchColumn()) { return $bad . ' is suspended in this competition, so it cannot play fixtures.'; }
         return null;
     },
 ]);
