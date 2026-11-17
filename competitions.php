@@ -11,8 +11,11 @@ $cur = null;
 foreach ($comps as $c) { if ((int)$c['id'] === $cid || ($cid >= 100000 && (int)($c['public_code'] ?? 0) === $cid)) { $cur = $c; } }
 if (!$cur && $comps) { $cur = $comps[0]; }
 $hasKo = $cur && !empty($cur['knockout']) && comp_ko_rows((int)$cur['id']);
-$tab = in_array($_GET['t'] ?? '', ['players', 'bracket'], true) ? $_GET['t'] : 'table';
+$auc = $cur ? auc_get((int)$cur['id']) : null;
+$hasAuc = $auc && $auc['status'] !== 'setup';
+$tab = in_array($_GET['t'] ?? '', ['players', 'bracket', 'auction'], true) ? $_GET['t'] : 'table';
 if ($tab === 'bracket' && !$hasKo) { $tab = 'table'; }
+if ($tab === 'auction' && !$hasAuc) { $tab = 'table'; }
 $mode = $cur ? (string)$cur['format'] : 'League';
 if (isset($_GET['mode']) && in_array($_GET['mode'], ['League', 'Groups'], true)) { $mode = $_GET['mode']; }
 $self = fn(array $q) => e(url('competitions.php?' . http_build_query(array_merge(['c' => ($cur['public_code'] ?? '') ?: ($cur['id'] ?? 0), 't' => $tab, 'mode' => $mode], $q))));
@@ -30,6 +33,7 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
     <div class="sw-tabs ms-auto">
       <a class="sw-tab<?= $tab === 'table' ? ' active' : '' ?>" href="<?= $self(['t' => 'table']) ?>"><i class="bi bi-table"></i> Table</a>
       <a class="sw-tab<?= $tab === 'players' ? ' active' : '' ?>" href="<?= $self(['t' => 'players']) ?>"><i class="bi bi-people"></i> Player stats</a>
+      <?php if ($hasAuc): ?><a class="sw-tab<?= $tab === 'auction' ? ' active' : '' ?>" href="<?= $self(['t' => 'auction']) ?>"><i class="bi bi-hammer"></i> Auction</a><?php endif; ?>
       <?php if ($hasKo): ?><a class="sw-tab<?= $tab === 'bracket' ? ' active' : '' ?>" href="<?= $self(['t' => 'bracket']) ?>"><i class="bi bi-diagram-3"></i> Bracket</a><?php endif; ?>
     </div>
   </form>
@@ -78,6 +82,25 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
         </div><?php endforeach; ?></div>
     <?php endif; ?>
 
+  <?php elseif ($tab === 'auction'): ?>
+    <?php $at = auc_teams($auc); $ap = auc_pool((int)$auc['id']); $ac = null; foreach ($ap as $r) { if ((int)$r['id'] === (int)$auc['current_pool_id']) { $ac = $r; } } ?>
+    <h2 class="h5 section-title mb-3"><i class="bi bi-hammer"></i> Player auction <span class="badge text-bg-<?= $auc['status'] === 'live' ? 'success' : 'secondary' ?> align-middle text-uppercase"><?= e($auc['status']) ?></span></h2>
+    <p class="small text-muted-ft">Each team has <b><?= (int)$auc['budget'] ?></b> to buy <b><?= (int)$auc['squad_size'] ?></b> players.</p>
+    <?php if ($ac): ?><div class="ft-card p-3 mb-3 d-flex flex-wrap align-items-center gap-3" style="border-color:var(--accent)">
+      <img src="<?= e(upload_url($ac['photo'])) ?>" alt="" style="width:64px;height:64px;border-radius:14px;object-fit:cover">
+      <div><div class="small text-muted-ft">Up for bidding now</div><div class="h5 mb-0"><?= e($ac['full_name']) ?></div><div class="small"><?= e(position_name($ac['category'])) ?> &middot; base <?= (int)$ac['base_price'] ?></div></div>
+      <div class="ms-auto text-end"><div class="display-6 fw-bold"><?= $auc['current_team'] !== null ? (int)$auc['current_bid'] : '-' ?></div><div class="small"><?= $auc['current_team'] !== null ? e($auc['current_team']) : 'No bids yet' ?></div></div></div>
+      <script>setTimeout(function(){location.reload()},8000)</script><?php endif; ?>
+    <div class="row g-3 mb-4">
+    <?php foreach ($at as $t): ?><div class="col-md-6"><div class="ft-card p-3 h-100">
+      <div class="d-flex justify-content-between"><b><?= e($t['name']) ?></b><span class="small text-muted-ft"><?= (int)$t['count'] ?>/<?= (int)$auc['squad_size'] ?> players &middot; <b><?= (int)$t['left'] ?></b> left</span></div>
+      <?php foreach ($t['players'] as $r): ?><div class="d-flex justify-content-between small py-1 border-top" style="border-color:var(--card-border)!important"><span><?= e($r['full_name']) ?> <span class="text-muted-ft"><?= e($r['category']) ?></span></span><b><?= (int)$r['sold_price'] ?></b></div><?php endforeach; ?>
+    </div></div><?php endforeach; ?>
+    </div>
+    <h3 class="h6 section-title">Available players by position</h3>
+    <?php $by = []; foreach ($ap as $r) { if ($r['status'] !== 'sold') { $by[$r['category'] ?: 'Other'][] = $r; } } foreach ($by as $cat => $rows): ?>
+      <div class="mb-2"><span class="fw-semibold"><?= e(position_name($cat)) ?></span>: <?php foreach ($rows as $r): ?><span class="badge text-bg-secondary me-1"><?= e($r['full_name']) ?> &middot; <?= (int)$r['base_price'] ?><?= $r['status'] === 'unsold' ? ' (unsold)' : '' ?></span><?php endforeach; ?></div>
+    <?php endforeach; if (!$by): ?><div class="text-muted-ft small">All players have been sold.</div><?php endif; ?>
   <?php elseif ($tab === 'bracket'): ?>
     <h2 class="h5 section-title mb-3"><i class="bi bi-diagram-3"></i> Knockout bracket</h2>
     <?= comp_bracket_html((int)$cur['id']) ?>

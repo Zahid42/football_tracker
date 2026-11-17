@@ -61,7 +61,7 @@ function admin_comp_id(): int
     return $first;
 }
 
-const COMP_TABS = ['comp-teams.php' => ['Teams & groups', 'bi-people'], 'comp-matches.php' => ['Fixtures & results', 'bi-calendar-check'], 'comp-knockout.php' => ['Knockout bracket', 'bi-diagram-3']];
+const COMP_TABS = ['comp-teams.php' => ['Teams & groups', 'bi-people'], 'comp-matches.php' => ['Fixtures & results', 'bi-calendar-check'], 'comp-knockout.php' => ['Knockout bracket', 'bi-diagram-3'], 'comp-auction.php' => ['Player auction', 'bi-hammer']];
 
 function comp_admin_bar(string $self): void
 {

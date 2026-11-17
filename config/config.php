@@ -67,6 +67,7 @@ require_once ROOT_PATH . '/includes/stats_view.php';
 require_once ROOT_PATH . '/includes/match_form.php';
 require_once ROOT_PATH . '/includes/team_profile.php';
 require_once ROOT_PATH . '/includes/competition.php';
+require_once ROOT_PATH . '/includes/auction.php';
 require_once ROOT_PATH . '/includes/members.php';
 
 // Make sure every player/team has its unique 6-digit public ID.
@@ -82,6 +83,7 @@ try {
     ft_team_schema_ensure();
     ft_calendar_ensure();
     ft_comp_ensure();
+    ft_auction_ensure();
     ft_members_ensure();
     ft_squad_ensure();
 } catch (Throwable $e) { /* database not ready yet (e.g. installing) */ }
