@@ -55,7 +55,7 @@ require __DIR__ . '/includes/header.php';
   <?= flash_render() ?>
   <?php foreach ($errors as $er): ?><div class="alert alert-danger py-2"><?= e($er) ?></div><?php endforeach; ?>
   <div class="ft-card p-3 mb-3 d-flex flex-wrap align-items-center gap-3">
-    <div><div class="text-muted-ft small">Signed in as</div><b><?= e($m['email']) ?></b></div>
+    <div><div class="text-muted-ft small">Player ID</div><b class="fs-5"><?= e((string)($m['public_code'] ?? '')) ?></b></div><div><div class="text-muted-ft small">E-mail (verified)</div><b><?= e($m['email']) ?></b></div>
     <div class="ms-auto"><?php if ($status === 'approved'): ?><span class="badge bg-success">Approved</span> <a class="btn btn-sm btn-accent" href="<?= e(url('index.php?player=' . (int)$pid)) ?>">View my page</a>
       <?php elseif ($status === 'rejected'): ?><span class="badge bg-danger">Not approved</span>
       <?php else: ?><span class="badge bg-warning text-dark">Waiting for admin approval</span><?php endif; ?></div>

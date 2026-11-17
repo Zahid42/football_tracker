@@ -44,6 +44,9 @@ require ROOT_PATH . '/includes/admin_header.php';
     <div class="ft-card p-4 mb-3"><h2 class="section-title h6">Account</h2>
       <p class="text-muted-ft small">Signed in as <b><?= e($admin['username']) ?></b>.</p>
       <a class="btn btn-outline-theme" href="<?= e(url('admin/change-password.php')) ?>"><i class="bi bi-key"></i> Change password</a></div>
+    <div class="ft-card p-4 mb-3"><h2 class="section-title h6">E-mail</h2>
+      <p class="text-muted-ft small">Verification codes, player IDs and approval notices are sent from here.</p>
+      <a class="btn btn-outline-theme" href="<?= e(url('admin/email.php')) ?>"><i class="bi bi-envelope-at"></i> E-mail settings</a></div>
     <div class="ft-card p-4"><h2 class="section-title h6">Data export</h2>
       <p class="text-muted-ft small">Download your records as CSV files.</p>
       <a class="btn btn-outline-theme" href="<?= e(url('admin/reports.php')) ?>"><i class="bi bi-filetype-csv"></i> Reports &amp; exports</a></div>

@@ -30,9 +30,10 @@ if ($open && is_post()) {
             $mid = (int)$pdo->lastInsertId();
             $pdo->commit();
             $_SESSION['signup_last'] = time();
-            member_login($mid);
-            flash_set('success', 'Welcome! Your account is created. Complete your profile below; the admin approves it before it appears on the site.');
-            redirect('account.php');
+            [$sent, $merr] = member_send_verification($mid);
+            $_SESSION['verify_email'] = $chk['email'];
+            flash_set($sent ? 'success' : 'warning', $sent ? 'We sent a 6-digit code to ' . $chk['email'] . '. Enter it below to verify your e-mail.' : 'Your account is created but we could not send the code (' . $merr . '). Press "Send a new code" or contact the admin.');
+            redirect('verify.php');
         } catch (Throwable $ex) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }
             $errors[] = 'Could not create the account. Please try again.';
@@ -54,7 +55,7 @@ require __DIR__ . '/includes/header.php';
         <input class="form-control" id="full_name" name="full_name" required maxlength="120" autocomplete="name" value="<?= e($v['full_name']) ?>"></div>
       <div class="mb-3"><label class="form-label" for="email">E-mail</label>
         <input class="form-control" type="email" id="email" name="email" required maxlength="120" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" value="<?= e($v['email']) ?>">
-        <div class="form-text" id="emailMsg" aria-live="polite">We check the address as you type. Only the admin can see it.</div></div>
+        <div class="form-text" id="emailMsg" aria-live="polite">We check the address as you type, then e-mail you a code to confirm it. Your player ID is sent to this address.</div></div>
       <div class="mb-3"><label class="form-label" for="password">Password</label>
         <div class="input-group"><input class="form-control" type="password" id="password" name="password" required minlength="8" maxlength="72" autocomplete="new-password">
           <button class="btn btn-outline-theme" type="button" id="pwToggle" aria-label="Show password"><i class="bi bi-eye"></i></button></div>

@@ -54,7 +54,8 @@ if (is_post()) {
         if ($pl && $pl['approval_status'] === 'pending') {
             if ($op === 'approve') {
                 db()->prepare("UPDATE players SET approval_status='approved', is_active=1 WHERE id=?")->execute([$pl['id']]);
-                flash_set('success', $pl['full_name'] . ' approved and now visible on the site.');
+                member_send_approved((int)$pl['id']);
+                flash_set('success', $pl['full_name'] . ' approved and now visible on the site. An e-mail was sent if the player has a verified account.');
             } else {
                 db()->prepare('DELETE FROM players WHERE id = ?')->execute([$pl['id']]);
                 delete_upload($pl['photo']);
@@ -62,6 +63,11 @@ if (is_post()) {
             }
         }
         redirect('admin/' . $self . (pending_players() ? '?view=pending' : ''));
+    }
+    if ($op === 'verify') {   // admin confirms the e-mail by hand (e.g. mail not set up yet)
+        $mq = db()->prepare('SELECT id FROM members WHERE player_id = ?'); $mq->execute([(int)post('id')]);
+        if ($mid = $mq->fetchColumn()) { member_mark_verified((int)$mid); flash_set('success', 'E-mail marked as verified' . (ft_mail_configured() ? ' and the player ID was e-mailed.' : '. E-mail is not set up, so give the player his ID yourself.')); }
+        redirect('admin/' . $self . '?view=pending');
     }
     if ($op === 'delete') {
         $pl = get_player((int)post('id'));
@@ -191,11 +197,12 @@ if ($action === 'new' || $action === 'edit'):
     <img class="req-photo" src="<?= e(upload_url($p['photo'])) ?>" alt="">
     <div class="req-main">
       <div class="req-name"><?= e($p['full_name']) ?><?= $p['nickname'] ? ' <small>&ldquo;' . e($p['nickname']) . '&rdquo;</small>' : '' ?></div>
-      <div class="req-meta"><span class="req-pill"><?= e(position_name($p['preferred_position'])) ?></span><span><i class="bi bi-envelope"></i> <?= e($p['email']) ?></span><?= $p['phone'] ? '<span><i class="bi bi-telephone"></i> ' . e($p['phone']) . '</span>' : '' ?><span><i class="bi bi-clock"></i> <?= e(fmt_date(substr((string)$p['registered_at'], 0, 10))) ?></span></div>
+      <div class="req-meta"><span class="req-pill"><?= e(position_name($p['preferred_position'])) ?></span><span><i class="bi bi-envelope"></i> <?= e($p['email']) ?></span><?php $vq = db()->prepare('SELECT email_verified FROM members WHERE player_id = ?'); $vq->execute([$p['id']]); $vv = $vq->fetchColumn(); ?><span class="req-pill"><?= $vv === false ? 'no account' : ($vv ? 'E-mail verified' : 'E-mail NOT verified') ?></span><span class="req-pill">ID <?= e((string)$p['public_code']) ?></span><?= $p['phone'] ? '<span><i class="bi bi-telephone"></i> ' . e($p['phone']) . '</span>' : '' ?><span><i class="bi bi-clock"></i> <?= e(fmt_date(substr((string)$p['registered_at'], 0, 10))) ?></span></div>
       <?php if ($p['bio']): ?><div class="req-bio" title="<?= e($p['bio']) ?>"><?= e($p['bio']) ?></div><?php endif; ?>
     </div>
     <div class="req-actions">
       <form method="post"><?= csrf_field() ?><input type="hidden" name="op" value="approve"><input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><button class="btn btn-sm btn-accent" title="Approve"><i class="bi bi-check-lg"></i> Approve</button></form>
+      <?php if ($vv === '0' || $vv === 0): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="op" value="verify"><input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><button class="btn btn-sm btn-outline-theme" title="Mark e-mail as verified"><i class="bi bi-envelope-check"></i></button></form><?php endif; ?>
       <a class="btn btn-sm btn-outline-theme" title="Edit first" href="<?= e(url('admin/' . $self . '?action=edit&id=' . $p['id'])) ?>"><i class="bi bi-pencil"></i></a>
       <form method="post" data-confirm="Reject and delete this registration?"><?= csrf_field() ?><input type="hidden" name="op" value="reject"><input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><button class="btn btn-sm btn-outline-danger" title="Reject"><i class="bi bi-x-lg"></i></button></form>
     </div>

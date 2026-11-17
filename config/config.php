@@ -68,6 +68,7 @@ require_once ROOT_PATH . '/includes/match_form.php';
 require_once ROOT_PATH . '/includes/team_profile.php';
 require_once ROOT_PATH . '/includes/competition.php';
 require_once ROOT_PATH . '/includes/auction.php';
+require_once ROOT_PATH . '/includes/mailer.php';
 require_once ROOT_PATH . '/includes/members.php';
 
 // Make sure every player/team has its unique 6-digit public ID.
