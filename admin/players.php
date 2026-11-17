@@ -21,6 +21,12 @@ $fields = [
     ['name' => 'is_featured', 'label' => 'Show this player on the homepage', 'type' => 'checkbox', 'col' => 6],
     ['name' => 'is_active', 'label' => 'Active (untick to archive - hidden from the public site)', 'type' => 'checkbox', 'col' => 6, 'default' => 1],
 ];
+$isNewForm = !(int)post('id') && (is_post() ? post('op') === 'save' : get_str('action') === 'new');
+$fullFields = $fields;
+if ($isNewForm) {   // quick add: essentials only, everything else (bio, style, body stats...) is edited later from the list
+    $quick = ['photo', 'full_name', 'nickname', 'date_of_birth', 'preferred_position', 'jersey_number', 'is_active'];
+    $fields = array_values(array_filter($fields, fn($f) => in_array($f['name'], $quick, true)));
+}
 $teamOptions = lookup("SELECT t.id, IF((SELECT COUNT(*) FROM teams x WHERE x.name = t.name) > 1, CONCAT(t.name, ' #', t.public_code), t.name) AS name FROM teams t ORDER BY t.name");
 $action = get_str('action', 'list');
 $id = (int)($_GET['id'] ?? 0);
@@ -75,6 +81,7 @@ if (is_post()) {
         // teams played for
         $pt = [];
         $tm = $_POST['pt_team'] ?? []; $ts = $_POST['pt_start'] ?? []; $te = $_POST['pt_end'] ?? []; $cur = (int)($_POST['pt_current'] ?? -1);
+        if ($isNewForm && (int)($_POST['quick_team'] ?? 0)) { $tm = [(int)$_POST['quick_team']]; $ts = $te = ['']; $cur = 0; }
         foreach ($tm as $i => $tid) {
             $tid = (int)$tid;
             if (!$tid) { continue; }
@@ -149,8 +156,10 @@ if ($action === 'new' || $action === 'edit'):
 <?php foreach ($errors as $er): ?><div class="alert alert-danger py-2"><?= e($er) ?></div><?php endforeach; ?>
 <form method="post" enctype="multipart/form-data" class="vstack gap-4">
   <?= csrf_field() ?><input type="hidden" name="op" value="save"><input type="hidden" name="id" value="<?= (int)($row['id'] ?? 0) ?>">
-  <div class="ft-card p-4"><h2 class="section-title h6 mb-3">Player details</h2><?= crud_render_fields($fields, $row) ?></div>
-  <div class="ft-card p-4">
+  <div class="ft-card p-4"><h2 class="section-title h6 mb-3"><?= $action === 'new' ? 'New player' : 'Player details' ?></h2><?= crud_render_fields($fields, $row) ?>
+    <?php if ($action === 'new'): ?><div class="row g-3 mt-0"><div class="col-md-6"><label class="form-label" for="quick_team">Current team</label><select class="form-select" id="quick_team" name="quick_team"><?= sel_opts($teamOptions, $_POST['quick_team'] ?? '', '- none -') ?></select><div class="form-text">Optional. <a href="<?= e(url('admin/teams.php?action=new')) ?>">Add a team first</a> if it is not listed.</div></div></div>
+    <p class="text-muted-ft small mt-3 mb-0"><i class="bi bi-info-circle"></i> Description, biography, playing style, height/weight and career history can be added later with the pencil button in the player list.</p><?php endif; ?></div>
+  <?php if ($action === 'edit'): ?><div class="ft-card p-4">
     <h2 class="section-title h6 mb-1">Teams played for</h2>
     <p class="text-muted-ft small">Shown as the career timeline on the player's profile. Choose the team, when he joined/left, and mark the current one.</p>
     <div class="table-responsive"><table class="table ft-table align-middle mb-0"><thead><tr><th>Team</th><th>From</th><th>To</th><th class="text-center">Current</th></tr></thead><tbody>
@@ -164,7 +173,7 @@ if ($action === 'new' || $action === 'edit'):
       <?php endfor; ?>
     </tbody></table></div>
     <div class="form-text mt-2">Need a team that is not listed? <a href="<?= e(url('admin/teams.php?action=new')) ?>">Add it first</a>, then come back.</div>
-  </div>
+  </div><?php endif; ?>
   <div class="d-flex gap-2"><button class="btn btn-accent btn-lg" type="submit"><i class="bi bi-check-lg"></i> Save Player</button><a class="btn btn-outline-theme btn-lg" href="<?= e(url('admin/' . $self)) ?>">Cancel</a></div>
 </form>
 <?php elseif (get_str('view') === 'pending'):
