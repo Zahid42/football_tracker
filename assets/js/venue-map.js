@@ -2,19 +2,19 @@
 (function () {
   'use strict';
   if (!window.L) { return; }
-  var TILES = {
-    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-  };
-  var ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
-  function themeKey() { return (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark' ? 'dark' : 'light'; }
+  // OpenStreetMap standard tiles need no API key. Dark theme: the tile layer is tinted with CSS (see .map-dark).
+  var TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  var ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  function isDark() { return (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark'; }
   function pin() {
     return L.divIcon({ className: 'venue-pin', html: '<span class="pulse"></span><span class="dot"><i class="bi bi-geo-alt-fill"></i></span>', iconSize: [44, 44], iconAnchor: [22, 40] });
   }
   window.FTMap = {
     tiles: function (map) {
-      var layer = L.tileLayer(TILES[themeKey()], { attribution: ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
-      new MutationObserver(function () { layer.setUrl(TILES[themeKey()]); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      var el = map.getContainer(), layer = L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19 }).addTo(map);
+      function sync() { el.classList.toggle('map-dark', isDark()); }
+      sync();
+      new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
       return layer;
     },
     pin: pin

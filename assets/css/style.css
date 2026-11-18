@@ -731,3 +731,5 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
 .venue-grid a.venue-tile{display:block;padding:1rem 1.1rem;border-radius:16px;border:1px solid var(--card-border);background:var(--card);color:var(--text);text-decoration:none;height:100%;transition:transform .15s,border-color .15s}
 .venue-grid a.venue-tile:hover{transform:translateY(-2px);border-color:var(--accent)}
 .venue-picker .venue-map{height:340px;border-radius:14px;border:1px solid var(--card-border)}
+.map-dark .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.55)}
+.map-dark .leaflet-container,.map-dark.leaflet-container{background:#1b2420}
