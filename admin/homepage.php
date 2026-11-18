@@ -20,7 +20,7 @@ require ROOT_PATH . '/includes/admin_header.php';
 <p class="text-muted-ft">The homepage shows the search bar and three totals. Choose which totals are visible and whether visitors can click them to open the list.</p>
 <form method="post" class="ft-card p-4" style="max-width:640px">
   <?= csrf_field() ?>
-  <table class="table align-middle mb-3">
+  <table class="table ft-table align-middle mb-3">
     <thead><tr><th>Total</th><th class="text-center">Show</th><th class="text-center">Clickable</th></tr></thead>
     <tbody>
     <?php foreach ($stats as $k => [$label, $icon, $href]): ?>

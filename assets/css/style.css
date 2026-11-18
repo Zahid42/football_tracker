@@ -733,3 +733,10 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
 .venue-picker .venue-map{height:340px;border-radius:14px;border:1px solid var(--card-border)}
 .map-dark .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.55)}
 .map-dark .leaflet-container,.map-dark.leaflet-container{background:#1b2420}
+
+/* Contrast fixes */
+.form-pill.result-win,.sr-res.result-win,.form-dot.result-win{color:#04200d}
+.form-pill.result-draw,.sr-res.result-draw,.form-dot.result-draw{color:#2a1700}
+[data-theme="light"] .trophy-ach,[data-theme="ocean"] .trophy-ach{color:#b45309}
+.alert a:not(.btn){color:inherit;text-decoration:underline;font-weight:600}
+.form-control::placeholder,.form-select::placeholder,textarea::placeholder,input::placeholder{color:var(--muted);opacity:.85}
