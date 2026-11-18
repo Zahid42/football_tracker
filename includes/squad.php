@@ -6,15 +6,38 @@
  */
 declare(strict_types=1);
 
-const FORMATIONS = [
-    '4-4-2'   => [['GK'], ['LB','CB','CB','RB'], ['LM','CM','CM','RM'], ['ST','ST']],
-    '4-3-3'   => [['GK'], ['LB','CB','CB','RB'], ['CM','CM','CM'], ['LW','ST','RW']],
-    '4-2-3-1' => [['GK'], ['LB','CB','CB','RB'], ['CDM','CDM'], ['LM','CAM','RM'], ['ST']],
-    '4-1-4-1' => [['GK'], ['LB','CB','CB','RB'], ['CDM'], ['LM','CM','CM','RM'], ['ST']],
-    '3-5-2'   => [['GK'], ['CB','CB','CB'], ['LM','CM','CDM','CM','RM'], ['ST','ST']],
-    '3-4-3'   => [['GK'], ['CB','CB','CB'], ['LM','CM','CM','RM'], ['LW','ST','RW']],
-    '5-3-2'   => [['GK'], ['LB','CB','CB','CB','RB'], ['CM','CM','CM'], ['ST','ST']],
-];
+/** Positions for one line of a formation. $i = line index (0 = defence), $n = number of lines, $c = players in the line. */
+function ft_line_positions(int $i, int $n, int $c): array
+{
+    $def = [1 => ['CB'], 2 => ['CB', 'CB'], 3 => ['CB', 'CB', 'CB'], 4 => ['LB', 'CB', 'CB', 'RB'], 5 => ['LB', 'CB', 'CB', 'CB', 'RB'], 6 => ['LB', 'CB', 'CB', 'CB', 'CB', 'RB']];
+    $att = [1 => ['ST'], 2 => ['ST', 'ST'], 3 => ['LW', 'ST', 'RW'], 4 => ['LW', 'ST', 'ST', 'RW'], 5 => ['LW', 'ST', 'ST', 'ST', 'RW']];
+    if ($i === 0) { return $def[$c]; }
+    if ($i === $n - 1) { return $att[$c]; }
+    $mids = $n - 2; $k = $i - 1;                       // which midfield line this is
+    if ($mids === 1) { return [1 => ['CM'], 2 => ['CM', 'CM'], 3 => ['CM', 'CM', 'CM'], 4 => ['LM', 'CM', 'CM', 'RM'], 5 => ['LM', 'CM', 'CDM', 'CM', 'RM'], 6 => ['LM', 'CM', 'CM', 'CM', 'CM', 'RM']][$c]; }
+    $wide = fn(int $c) => array_merge(['LM'], array_fill(0, $c - 2, 'CM'), ['RM']);
+    if ($k === 0) { return [1 => ['CDM'], 2 => ['CDM', 'CDM'], 3 => ['CM', 'CDM', 'CM'], 4 => ['LM', 'CM', 'CM', 'RM']][$c] ?? $wide($c); }
+    if ($k === $mids - 1 && $c === 4) { return ['LM', 'CM', 'CM', 'RM']; }
+    if ($k > 0 && $k < $mids - 1 && $c === 2) { return ['CM', 'CM']; }
+    return [1 => ['CAM'], 2 => ['CAM', 'CAM'], 3 => ['LM', 'CAM', 'RM'], 4 => ['LM', 'CAM', 'CAM', 'RM']][$c] ?? $wide($c);
+}
+
+/** Every common formation: key "4-3-3" => lines of positions, goalkeeper first. */
+function ft_build_formations(): array
+{
+    $keys = ['4-4-2', '4-3-3', '4-2-3-1', '4-1-4-1', '3-5-2', '3-4-3', '5-3-2',
+        '4-5-1', '4-4-1-1', '4-3-2-1', '4-3-1-2', '4-2-2-2', '4-2-4', '4-2-1-3', '4-1-2-3', '4-1-2-1-2', '4-1-3-2',
+        '3-4-1-2', '3-4-2-1', '3-6-1', '3-3-4', '3-3-3-1', '3-1-4-2', '3-2-4-1', '3-5-1-1', '3-2-5',
+        '5-4-1', '5-2-3', '5-2-1-2', '5-3-1-1', '5-1-2-2', '2-3-5'];
+    $out = [];
+    foreach ($keys as $k) {
+        $nums = array_map('intval', explode('-', $k)); $n = count($nums); $lines = [['GK']];
+        foreach ($nums as $i => $c) { $lines[] = ft_line_positions($i, $n, $c); }
+        $out[$k] = $lines;
+    }
+    return $out;
+}
+define('FORMATIONS', ft_build_formations());
 const MAX_SUBS = 7;
 
 /** Slots for a formation: list of ['slot'=>1..11,'pos'=>'GK','x'=>%,'y'=>%]. */
@@ -76,7 +99,8 @@ function render_pitch(array $match, array $squad, bool $horizontal = false): str
     $nameHtml = fn(array $p) => !empty($p['player_id'])
         ? '<a class="pname" href="' . e(player_url_by_id((int)$p['player_id'])) . '">' . e($p['player_name']) . '</a>'
         : '<span class="pname">' . e($p['player_name']) . '</span>';
-    $h  = '<div class="squad-view">';
+    $h  = '<div class="squad-view" data-fp="match" data-h="' . ($horizontal ? 1 : 0) . '">';
+    $h .= formation_picker('match', $formation);
     $h .= '<div class="squad-head"><span class="sq-team">' . e($match['team_name']) . '</span>'
         . '<span class="sq-form">' . e($formation ?: 'Line-up') . '</span>'
         . '<span class="sq-vs">vs ' . e($match['opponent_name']) . ' &middot; ' . (int)$match['team_score'] . '-' . (int)$match['opponent_score'] . '</span></div>';
@@ -85,7 +109,7 @@ function render_pitch(array $match, array $squad, bool $horizontal = false): str
         $p = $starters[$s['slot']] ?? null;
         if (!$p) { continue; }
         $cls = 'pl' . ($isMe($p) ? ' is-me' : '') . (!empty($p['player_id']) ? ' is-reg' : '') . ($s['pos'] === 'GK' ? ' is-gk' : '');
-        $h .= '<div class="' . $cls . '" style="left:' . ($horizontal ? 100 - $s['y'] : $s['x']) . '%;top:' . ($horizontal ? $s['x'] : $s['y']) . '%" title="' . e($p['player_name'] . ' - ' . position_name($s['pos'])) . '">'
+        $h .= '<div class="' . $cls . '" data-slot="' . $s['slot'] . '" style="left:' . ($horizontal ? 100 - $s['y'] : $s['x']) . '%;top:' . ($horizontal ? $s['x'] : $s['y']) . '%" title="' . e($p['player_name'] . ' - ' . position_name($s['pos'])) . '">'
             . '<span class="shirt">' . e($p['shirt_number'] ?? '') . ($p['is_captain'] ? '<i class="cap">C</i>' : '') . '</span>'
             . $nameHtml($p) . '<span class="ppos">' . e($s['pos']) . '</span></div>';
     }
@@ -99,6 +123,21 @@ function render_pitch(array $match, array $squad, bool $horizontal = false): str
         $h .= '</div></div>';
     }
     return $h . '</div>';
+}
+
+/** Formation picker shown above every pitch. $mode 'match' keeps the recorded line-up order; 'team' places players by their positions. */
+function formation_picker(string $mode, string $current = ''): string
+{
+    static $loaded = false;
+    $h = '<div class="fp-bar"><label class="fp-lab" for="fp-' . ($id = bin2hex(random_bytes(3))) . '"><i class="bi bi-diagram-3"></i> Formation</label><select class="form-select form-select-sm fp-select" id="fp-' . $id . '">';
+    $h .= $mode === 'team' ? '<option value="">Auto (by player positions)</option>' : '<option value="">' . e($current !== '' ? $current . ' (as played)' : 'As recorded') . '</option>';
+    foreach (array_keys(FORMATIONS) as $f) { $h .= '<option value="' . e($f) . '">' . e($f) . '</option>'; }
+    $h .= '</select></div>';
+    if (!$loaded) {
+        $loaded = true;
+        $h .= '<script>window.FT_FORMATIONS=' . json_encode(FORMATIONS) . ';</script><script src="' . e(url('assets/js/pitch.js') . '?v=' . (int)@filemtime(ROOT_PATH . '/assets/js/pitch.js')) . '" defer></script>';
+    }
+    return $h;
 }
 
 function pitch_svg(bool $horizontal = false): string

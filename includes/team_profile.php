@@ -193,14 +193,14 @@ function team_pitch(array $squad): string
     $subs = array_filter($squad, fn($p) => !isset($isStart[$p['id']]));
     $groups = [];
     foreach ($starters as $p) { $i = $info($p); $groups[$i[0]]['x'] = $i[1]; $groups[$i[0]]['p'][] = [$i[2], $p]; }
-    $h = '<div class="squad-view team-pitch"><div class="pitch pitch-h">' . pitch_svg(true);
+    $h = '<div class="squad-view team-pitch" data-fp="team" data-h="1">' . formation_picker('team') . '<div class="pitch pitch-h">' . pitch_svg(true);
     foreach ($groups as $g) {
         usort($g['p'], fn($a, $b) => [$a[0], $a[1]['shirt_number'] ?? 99] <=> [$b[0], $b[1]['shirt_number'] ?? 99]);
         $n = count($g['p']);
         foreach ($g['p'] as $k => [, $p]) {
             $y = $n === 1 ? 50 : 14 + (72 * $k / ($n - 1));
             $name = !empty($p['public_code']) ? '<a class="pname" href="' . e(url($p['public_code'])) . '">' . e($p['name']) . '</a>' : '<span class="pname">' . e($p['name']) . '</span>';
-            $h .= '<div class="pl' . (($p['position'] ?? '') === 'GK' ? ' is-gk' : '') . (!empty($p['public_code']) ? ' is-reg' : '') . '" style="left:' . $g['x'] . '%;top:' . round($y, 1) . '%" title="' . e($p['name'] . ' - ' . position_name($p['position'] ?? null)) . '">'
+            $h .= '<div class="pl' . (($p['position'] ?? '') === 'GK' ? ' is-gk' : '') . (!empty($p['public_code']) ? ' is-reg' : '') . '" data-pos="' . e($p['position'] ?? '') . '" style="left:' . $g['x'] . '%;top:' . round($y, 1) . '%" title="' . e($p['name'] . ' - ' . position_name($p['position'] ?? null)) . '">'
                 . '<span class="shirt">' . e($p['shirt_number'] ?? '') . (!empty($p['is_captain']) ? '<i class="cap">C</i>' : '') . '</span>' . $name . '<span class="ppos">' . e($p['position'] ?? '') . '</span></div>';
         }
     }

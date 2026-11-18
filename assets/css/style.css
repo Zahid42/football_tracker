@@ -703,3 +703,9 @@ html{scroll-behavior:smooth}[id]{scroll-margin-top:120px}
 .snap-load span{width:18px;height:18px;border-radius:50%;border:3px solid rgba(var(--accent-rgb),.25);border-top-color:var(--accent);animation:snapspin .8s linear infinite}
 @keyframes snapspin{to{transform:rotate(360deg)}}
 .snap-acts{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end}
+
+/* Formation picker */
+.fp-bar{display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem}
+.fp-lab{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0;white-space:nowrap}
+.fp-select{max-width:260px}
+.squad-view .pl{transition:left .45s ease,top .45s ease}
