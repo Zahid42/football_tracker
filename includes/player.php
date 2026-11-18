@@ -238,7 +238,7 @@ function team_other_players(int $tid, int $pid): int
 }
 
 /** Add a team to ONE player. A team with the same name is reused (and linked); nothing of it is changed for other players. */
-function player_add_team(int $pid, array $data): array
+function player_add_team(int $pid, array $data, bool $link = true): array
 {
     $find = db()->prepare('SELECT * FROM teams WHERE name = ? ORDER BY id LIMIT 1');
     $find->execute([$data['name']]);
@@ -253,8 +253,10 @@ function player_add_team(int $pid, array $data): array
         $tid = (int)db()->lastInsertId();
         $reused = false;
     }
-    $has = db()->prepare('SELECT COUNT(*) FROM player_teams WHERE player_id = ? AND team_id = ?'); $has->execute([$pid, $tid]);
-    if (!(int)$has->fetchColumn()) { db()->prepare('INSERT INTO player_teams (player_id, team_id, is_current) VALUES (?, ?, 0)')->execute([$pid, $tid]); }
+    if ($link) {
+        $has = db()->prepare('SELECT COUNT(*) FROM player_teams WHERE player_id = ? AND team_id = ?'); $has->execute([$pid, $tid]);
+        if (!(int)$has->fetchColumn()) { db()->prepare('INSERT INTO player_teams (player_id, team_id, is_current) VALUES (?, ?, 0)')->execute([$pid, $tid]); }
+    }
     return ['id' => $tid, 'reused' => $reused];
 }
 

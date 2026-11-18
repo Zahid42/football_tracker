@@ -26,17 +26,17 @@ crud_run([
                 ? 'Saved for ' . $who . ' only. Other players share this team, so they keep it unchanged and ' . $who . ' now has their own copy.'
                 : 'Team saved.'];
         }
-        $r = player_add_team($pid, $data);
+        $r = player_add_team($pid, $data, false);   // new teams are NOT attached to the selected player
         return ['id' => $r['id'], 'msg' => $r['reused']
-            ? 'A team with this name already exists, so it was added to ' . $who . "'s profile. Other players are not affected."
-            : 'Team added to ' . $who . "'s profile."];
+            ? 'A team with this name already exists, so nothing new was created. It is not linked to any player; assign it on the Players page.'
+            : 'Team created and not linked to any player. Assign it to players on the Players page.'];
     },
     'force_delete' => true,
     'delete_confirm' => 'Remove this team from ' . ($pl['full_name'] ?? 'this player') . "'s profile? Only THEIR matches, goals, assists and stats for this team are removed. Other players who share the team are not affected.",
     'scope' => fn() => '(t.id IN (SELECT team_id FROM player_teams WHERE player_id = ' . $pid . ') OR t.id IN (SELECT m.team_id FROM matches m JOIN match_statistics s ON s.match_id = m.id WHERE s.player_id = ' . $pid . ')'
         . ' OR (NOT EXISTS (SELECT 1 FROM player_teams x WHERE x.team_id = t.id) AND NOT EXISTS (SELECT 1 FROM matches y WHERE y.team_id = t.id)))',
     'table' => 'teams', 'title' => 'Teams', 'singular' => 'Team', 'icon' => 'bi-shield',
-    'intro' => 'Teams of the player you are managing. Removing a team here only affects this player; other players who share the team keep theirs. To give a player an existing team, assign it on the Players page.',
+    'intro' => 'Teams of the player you are managing. Removing a team here only affects this player; other players who share the team keep theirs. New teams are created on their own and are not attached to the player you are managing; assign a team to a player on the Players page.',
     'search' => ['t.name', 't.short_name'], 'order' => 't.name',
     'fields' => [
         ['name' => 'name', 'label' => 'Team Name', 'required' => true, 'max' => 100],
