@@ -28,6 +28,10 @@ $photos = array_merge($photos, $gal);
         <?= facts_list(['Date' => fmt_date($m['match_date'], 'l, d M Y'), 'Kickoff' => fmt_time($m['kickoff_time']), 'Season' => $m['season_name'], 'Competition' => $m['competition_name'] ?? '-',
             'Match type' => $m['match_type'], 'Venue' => ($m['venue_name'] ?? '-') . ($m['venue_city'] ? ', ' . $m['venue_city'] : ''), 'Home / Away' => $m['home_away'],
             'Home team' => $m['home_away'] === 'Away' ? $m['opponent_name'] : $m['team_name'], 'Away team' => $m['home_away'] === 'Away' ? $m['team_name'] : $m['opponent_name'], 'Formation' => $m['formation'] ?: '-']) ?></div>
+      <?php if (!empty($m['venue_id'])): $vq = db()->prepare('SELECT * FROM venues WHERE id = ?'); $vq->execute([$m['venue_id']]); $vv = $vq->fetch(); if ($vv): ?>
+        <div class="mb-4"><div class="d-flex justify-content-between align-items-center mb-2"><h2 class="section-title h6 mb-0"><i class="bi bi-geo-alt"></i> Venue</h2><a class="small" href="<?= e(venue_url((int)$vv['id'])) ?>">Venue page &rarr;</a></div>
+        <?= venue_has_geo($vv) ? venue_map_html($vv, '240px') : '<div class="ft-card p-3 small text-muted-ft"><b>' . e($vv['name']) . '</b> - map location not added yet.</div>' ?></div>
+      <?php endif; endif; ?>
       <?php if ($m['goals'] !== null): ?><div class="ft-card p-4"><h2 class="section-title h6"><?= e(player_short_name(get_player(ctx_pid()))) ?>'s performance</h2>
         <?= facts_list(['Starting position' => position_name($m['position']) . ($m['position'] ? ' (' . $m['position'] . ')' : ''), 'Started' => $m['started'] ? 'Yes' : 'From the bench', 'Minutes played' => $m['minutes_played'], 'Goals' => $m['goals'],
             'Assists' => $m['assists'], 'Yellow cards' => $m['yellow_cards'], 'Red cards' => $m['red_cards'], 'Own goals' => $m['own_goals'], 'Penalty goals' => $m['penalty_goals'], 'Fouls' => $m['fouls'], 'Tackles' => $m['tackles'], 'Interceptions' => $m['interceptions'], 'Clearances' => $m['clearances'], 'Blocks' => $m['blocks'], 'Recoveries' => $m['recoveries'],
