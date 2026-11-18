@@ -24,10 +24,6 @@ $cnt = (int)db()->query('SELECT COUNT(*) FROM matches WHERE venue_id = ' . (int)
   </div>
   <div class="row g-4">
     <div class="col-lg-8">
-      <?php if (venue_has_geo($v)): ?><?= venue_map_html($v, '420px') ?>
-      <?php else: ?><div class="ft-card p-4 text-center text-muted-ft"><i class="bi bi-map fs-2 d-block mb-2"></i>The map location of this venue has not been added yet.</div><?php endif; ?>
-    </div>
-    <div class="col-lg-4">
       <?php if ($v['notes']): ?><div class="ft-card p-4 mb-3"><h2 class="section-title h6">About this venue</h2><p class="mb-0"><?= nl2br(e($v['notes'])) ?></p></div><?php endif; ?>
       <div class="ft-card p-4"><h2 class="section-title h6">Matches here</h2>
         <?php foreach ($ms as $m): ?><a class="d-flex justify-content-between small py-2 border-top text-decoration-none" style="border-color:var(--card-border)!important;color:var(--text)" href="<?= e(url('match-details.php?id=' . (int)$m['id'])) ?>"><span><?= e($m['tn']) ?> v <?= e($m['oname']) ?></span><span class="text-muted-ft"><?= e(fmt_date($m['match_date'], 'd M Y')) ?> &middot; <b><?= (int)$m['team_score'] ?>-<?= (int)$m['opponent_score'] ?></b></span></a><?php endforeach; ?>
