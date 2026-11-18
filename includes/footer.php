@@ -4,7 +4,7 @@ declare(strict_types=1);
 ?>
 </main>
 <footer class="ft-footer">
-  <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+  <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-0 gap-md-2">
     <span><i class="bi bi-dribbble"></i> <?= e(setting('site_title', 'Football Tracker')) ?></span>
     <span class="text-muted-ft">&copy; <?= date('Y') ?> &middot; Personal football profile &amp; match tracker</span>
   </div>

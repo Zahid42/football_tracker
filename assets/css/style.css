@@ -134,7 +134,7 @@ a { color: var(--accent); }
 .ft-navbar .navbar-toggler { color: var(--text); border-color: var(--card-border); font-size: 1.4rem; padding: .1rem .5rem; }
 
 /* Footer */
-.ft-footer { border-top: 1px solid var(--card-border); padding: 1.5rem 0; margin-top: 4rem; font-size: .9rem; }
+.ft-footer { border-top: 1px solid var(--card-border); padding: .75rem 0; margin-top: 4rem; font-size: .9rem; }
 
 /* Hero */
 .hero {
