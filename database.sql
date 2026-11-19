@@ -23,7 +23,7 @@ DROP TABLE IF EXISTS
   `team_kits`, `team_records`, `team_squad`, `trophies`,
   `auctions`, `matches`, `players`, `admins`,
   `competitions`, `opponents`, `teams`, `venues`,
-  `seasons`;
+  `seasons`, `profile`;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---------------------------------------------------------------------
