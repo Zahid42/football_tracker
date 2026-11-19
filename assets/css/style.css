@@ -780,3 +780,8 @@ img, video, svg { max-width: 100%; }
   .btn, .form-select, .form-control { min-height: 40px; }
 }
 @media (max-width: 767.98px) { .snap-fab { padding: .5rem .62rem; right: 10px; opacity: .92; } .snap-fab i { font-size: 1.05rem; } }
+
+/* sticky footer: on short pages the footer sits at the very bottom of the screen, nothing below it */
+body.public-body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+body.public-body > main { flex: 1 0 auto; }
+body.public-body > .ft-footer { flex-shrink: 0; margin-top: 2rem; margin-bottom: 0; }
