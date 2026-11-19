@@ -1,0 +1,137 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/../config/config.php';
+$admin = require_login();
+
+if (isset($_GET['sample'])) {
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Content-Disposition: attachment; filename="players-sample.txt"');
+    echo "# Name, Position, Jersey, Nickname, Date of birth\n# Only the name is required. Lines starting with # are ignored.\nKarim Rahman, GK, 1, Karim, 2001-04-12\nTanvir Ahmed, Striker, 9\nSohel Rana, CM\nImran Hossain\n";
+    exit;
+}
+
+/** Position code from a code or a name ("ST", "striker", "midfielder"). */
+function import_position(string $s): ?string
+{
+    $s = mb_strtolower(trim($s)); if ($s === '') { return ''; }
+    foreach (POSITIONS as $c) { if (mb_strtolower($c) === $s) { return $c; } }
+    foreach (POSITION_NAMES as $c => $n) { if (mb_strtolower($n) === $s) { return $c; } }
+    $syn = ['keeper' => 'GK', 'goalie' => 'GK', 'goalkeeper' => 'GK', 'defender' => 'CB', 'centre back' => 'CB', 'center back' => 'CB', 'fullback' => 'LB', 'midfielder' => 'CM', 'midfield' => 'CM',
+            'forward' => 'ST', 'attacker' => 'ST', 'striker' => 'ST', 'winger' => 'LW', 'center forward' => 'CF', 'centre forward' => 'CF'];
+    return $syn[$s] ?? null;
+}
+
+function import_date(string $s): ?string
+{
+    $s = trim($s); if ($s === '') { return ''; }
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $s, $m)) { [$y, $mo, $d] = [$m[1], $m[2], $m[3]]; }
+    elseif (preg_match('/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/', $s, $m)) { [$d, $mo, $y] = [$m[1], $m[2], $m[3]]; }
+    else { return null; }
+    return checkdate((int)$mo, (int)$d, (int)$y) && (int)$y > 1950 && sprintf('%04d-%02d-%02d', $y, $mo, $d) <= date('Y-m-d') ? sprintf('%04d-%02d-%02d', $y, $mo, $d) : null;
+}
+
+function import_parse(string $text): array
+{
+    if (str_starts_with($text, "\xEF\xBB\xBF")) { $text = substr($text, 3); }
+    if (!mb_check_encoding($text, 'UTF-8')) { $text = mb_convert_encoding($text, 'UTF-8', 'Windows-1252'); }
+    $rows = []; $seen = [];
+    $exists = db()->prepare('SELECT COUNT(*) FROM players WHERE LOWER(full_name) = LOWER(?) AND (date_of_birth <=> ? OR ? IS NULL OR date_of_birth IS NULL)');
+    foreach (preg_split('/\r\n|\r|\n/', $text) as $i => $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') { continue; }
+        if (count($rows) >= 500) { $rows[] = ['line' => $i + 1, 'raw' => $line, 'status' => 'skip', 'msg' => 'Limit of 500 players per import reached.']; break; }
+        $delim = null; $best = PHP_INT_MAX;
+        foreach (["\t", '|', ';', ','] as $d) { $p = strpos($line, $d); if ($p !== false && $p < $best) { $best = $p; $delim = $d; } }
+        $c = array_map('trim', $delim ? explode($delim, $line) : [$line]);
+        if (!$rows && in_array(mb_strtolower($c[0]), ['name', 'full name', 'player', 'player name', 'fullname'], true)) { continue; }   // header row
+        $name = trim(preg_replace('/\s+/u', ' ', preg_replace('/[\x00-\x1F\x7F]/u', '', $c[0])));
+        $r = ['line' => $i + 1, 'name' => $name, 'pos' => '', 'jersey' => null, 'nick' => '', 'dob' => null, 'status' => 'ok', 'msg' => []];
+        if (mb_strlen($name) < 2 || mb_strlen($name) > 100) { $r['status'] = 'skip'; $r['msg'][] = 'Name must be 2-100 characters.'; $rows[] = $r + ['raw' => $line]; continue; }
+        if (isset($c[1]) && $c[1] !== '') { $p = import_position($c[1]); if ($p === null) { $r['msg'][] = '"' . $c[1] . '" is not a known position (left empty).'; } else { $r['pos'] = $p; } }
+        if (isset($c[2]) && $c[2] !== '') { if (ctype_digit($c[2]) && (int)$c[2] >= 0 && (int)$c[2] <= 99) { $r['jersey'] = (int)$c[2]; } else { $r['msg'][] = 'Jersey "' . $c[2] . '" ignored (use 0-99).'; } }
+        if (isset($c[3])) { $r['nick'] = mb_substr($c[3], 0, 60); }
+        if (isset($c[4]) && $c[4] !== '') { $d = import_date($c[4]); if ($d === null) { $r['msg'][] = 'Date of birth "' . $c[4] . '" ignored (use YYYY-MM-DD).'; } elseif ($d !== '') { $r['dob'] = $d; } }
+        $key = mb_strtolower($name) . '|' . ($r['dob'] ?? '');
+        $exists->execute([$name, $r['dob'], $r['dob']]);
+        if (isset($seen[$key])) { $r['status'] = 'skip'; $r['msg'][] = 'Repeated in this list.'; }
+        elseif ((int)$exists->fetchColumn()) { $r['status'] = 'skip'; $r['msg'][] = 'A player with this name already exists.'; }
+        $seen[$key] = 1;
+        $r['raw'] = $line; $rows[] = $r;
+    }
+    return $rows;
+}
+
+$teamOptions = lookup('SELECT id, name FROM teams ORDER BY name');
+$preview = null;
+if (is_post()) {
+    csrf_require();
+    $op = post('op');
+    if ($op === 'preview') {
+        $text = trim((string)($_POST['list'] ?? ''));
+        if (!empty($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
+            $f = $_FILES['file'];
+            if ($f['size'] > 512 * 1024) { flash_set('danger', 'The file is too large (max 512 KB).'); redirect('admin/players-import.php'); }
+            if (!preg_match('/\.(txt|csv|tsv|list)$/i', (string)$f['name'])) { flash_set('danger', 'Please upload a .txt or .csv file.'); redirect('admin/players-import.php'); }
+            $text = (string)file_get_contents($f['tmp_name']);
+        }
+        if (trim($text) === '') { flash_set('danger', 'Choose a text file or paste a list of players.'); redirect('admin/players-import.php'); }
+        $rows = import_parse($text);
+        $_SESSION['pl_import'] = ['rows' => $rows, 'team' => (int)post('team_id')];
+        redirect('admin/players-import.php?step=preview');
+    }
+    if ($op === 'confirm') {
+        $imp = $_SESSION['pl_import'] ?? null; unset($_SESSION['pl_import']);
+        if (!$imp) { flash_set('danger', 'The preview expired. Upload the list again.'); redirect('admin/players-import.php'); }
+        $team = $imp['team'] && isset($teamOptions[$imp['team']]) ? (int)$imp['team'] : 0;
+        $pdo = db(); $n = 0;
+        $ins = $pdo->prepare("INSERT INTO players (full_name, nickname, date_of_birth, preferred_position, jersey_number, current_team_id, is_active, approval_status, public_code) VALUES (?,?,?,?,?,?,1,'approved',?)");
+        $lnk = $pdo->prepare('INSERT INTO player_teams (player_id, team_id, is_current) VALUES (?, ?, 1)');
+        foreach ($imp['rows'] as $r) {
+            if ($r['status'] !== 'ok') { continue; }
+            $ins->execute([$r['name'], $r['nick'] !== '' ? $r['nick'] : null, $r['dob'], $r['pos'] !== '' ? $r['pos'] : null, $r['jersey'], $team ?: null, ft_new_code()]);
+            if ($team) { $lnk->execute([(int)$pdo->lastInsertId(), $team]); }
+            $n++;
+        }
+        flash_set('success', $n . ' player' . ($n === 1 ? '' : 's') . ' added to the player list.');
+        redirect('admin/players.php');
+    }
+}
+
+$pageTitle = 'Import players';
+require ROOT_PATH . '/includes/admin_header.php';
+?>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="page-title h3 mb-0"><i class="bi bi-file-earmark-arrow-up"></i> Import players from a list</h1>
+  <a class="btn btn-outline-theme" href="<?= e(url('admin/players.php')) ?>"><i class="bi bi-arrow-left"></i> Players</a>
+</div>
+<?php if (($_GET['step'] ?? '') === 'preview' && !empty($_SESSION['pl_import'])): $imp = $_SESSION['pl_import']; $ok = count(array_filter($imp['rows'], fn($r) => $r['status'] === 'ok')); ?>
+  <div class="ft-card p-3 mb-3"><b><?= $ok ?></b> of <?= count($imp['rows']) ?> lines will be added<?= $imp['team'] && isset($teamOptions[$imp['team']]) ? ' to team <b>' . e($teamOptions[$imp['team']]) . '</b>' : '' ?>. Lines marked "Skipped" are not imported. Nothing is saved until you confirm.</div>
+  <div class="table-responsive"><table class="table ft-table align-middle"><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Jersey</th><th>Nickname</th><th>Born</th><th>Result</th></tr></thead><tbody>
+  <?php foreach ($imp['rows'] as $r): ?>
+    <tr class="<?= $r['status'] === 'skip' ? 'text-muted-ft' : '' ?>"><td><?= (int)$r['line'] ?></td>
+    <?php if (!isset($r['name'])): ?><td colspan="5"><?= e($r['raw']) ?></td>
+    <?php else: ?><td class="fw-semibold"><?= e($r['name']) ?></td><td><?= e($r['pos'] ? position_name($r['pos']) : '-') ?></td><td><?= $r['jersey'] !== null ? '#' . (int)$r['jersey'] : '-' ?></td><td><?= e($r['nick'] ?: '-') ?></td><td><?= e($r['dob'] ?? '-') ?></td><?php endif; ?>
+    <td><?= $r['status'] === 'ok' ? '<span class="badge text-bg-success">Add</span>' : '<span class="badge text-bg-secondary">Skipped</span>' ?><?php if ($r['msg']): ?><div class="small"><?= e(is_array($r['msg']) ? implode(' ', $r['msg']) : $r['msg']) ?></div><?php endif; ?></td></tr>
+  <?php endforeach; ?></tbody></table></div>
+  <form method="post" class="d-flex gap-2"><?= csrf_field() ?>
+    <button class="btn btn-accent" name="op" value="confirm" <?= $ok ? '' : 'disabled' ?>><i class="bi bi-check-lg"></i> Add <?= $ok ?> player<?= $ok === 1 ? '' : 's' ?></button>
+    <a class="btn btn-outline-theme" href="<?= e(url('admin/players-import.php')) ?>">Cancel</a></form>
+<?php else: ?>
+  <p class="text-muted-ft">Upload a text file (or paste a list) with <b>one player per line</b>. Imported players are added to the player list straight away and get their own 6-digit ID. Everything else (photo, biography, height...) can be edited later from the player list.</p>
+  <div class="row g-3"><div class="col-lg-7">
+  <form method="post" enctype="multipart/form-data" class="ft-card p-4"><?= csrf_field() ?><input type="hidden" name="op" value="preview">
+    <div class="mb-3"><label class="form-label" for="file">Text file (.txt or .csv)</label><input class="form-control" type="file" id="file" name="file" accept=".txt,.csv,.tsv,text/plain,text/csv"></div>
+    <div class="mb-3"><label class="form-label" for="list">...or paste the list here</label><textarea class="form-control" id="list" name="list" rows="7" placeholder="Karim Rahman, GK, 1&#10;Tanvir Ahmed, Striker, 9"></textarea></div>
+    <div class="mb-3"><label class="form-label" for="team_id">Add all of them to a team (optional)</label><select class="form-select" id="team_id" name="team_id"><?= sel_opts($teamOptions, '', '- no team -') ?></select></div>
+    <button class="btn btn-accent"><i class="bi bi-eye"></i> Preview</button>
+  </form></div>
+  <div class="col-lg-5"><div class="ft-card p-4"><h2 class="h6 section-title">File format</h2>
+    <p class="small mb-2">Each line: <code>Name, Position, Jersey, Nickname, Date of birth</code></p>
+    <ul class="small mb-2"><li>Only the <b>name</b> is required; add the others in this order if you have them.</li><li>Separate with commas, tabs, semicolons or <code>|</code>.</li><li>Position: <code>GK</code>, <code>ST</code>... or a word like Striker, Midfielder.</li><li>Date: <code>2001-04-12</code> or <code>12/04/2001</code>.</li><li>Players with a name already in the list are skipped. Up to 500 per import.</li></ul>
+    <pre class="small mb-2" style="white-space:pre-wrap">Karim Rahman, GK, 1, Karim, 2001-04-12
+Tanvir Ahmed, Striker, 9
+Sohel Rana, CM
+Imran Hossain</pre>
+    <a class="btn btn-sm btn-outline-theme" href="<?= e(url('admin/players-import.php?sample=1')) ?>"><i class="bi bi-download"></i> Download a sample file</a></div></div></div>
+<?php endif;
+require ROOT_PATH . '/includes/admin_footer.php';

@@ -217,7 +217,8 @@ if ($action === 'new' || $action === 'edit'):
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <div><h1 class="page-title h3 mb-0"><i class="bi bi-people"></i> Players</h1>
     <p class="text-muted-ft mb-0">Choose who is shown on the homepage, and which player you are managing in the admin.</p></div>
-  <a class="btn btn-accent" href="<?= e(url('admin/' . $self . '?action=new')) ?>"><i class="bi bi-plus-lg"></i> Add Player</a>
+  <div class="d-flex gap-2"><a class="btn btn-outline-theme" href="<?= e(url('admin/players-import.php')) ?>"><i class="bi bi-file-earmark-arrow-up"></i> Import list</a>
+  <a class="btn btn-accent" href="<?= e(url('admin/' . $self . '?action=new')) ?>"><i class="bi bi-plus-lg"></i> Add Player</a></div>
 </div>
 <?php if ($np = count(pending_players())): ?><div class="alert alert-warning d-flex justify-content-between align-items-center"><span><i class="bi bi-person-exclamation"></i> <b><?= $np ?></b> registration<?= $np > 1 ? 's' : '' ?> waiting for approval.</span><a class="btn btn-sm btn-accent" href="<?= e(url('admin/' . $self . '?view=pending')) ?>">Review</a></div><?php endif; ?>
 <?= player_filter_bar($f, true) ?>

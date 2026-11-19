@@ -33,7 +33,7 @@ function admin_nav(): array
     return [
         ['label' => 'Dashboard',    'href' => 'admin/index.php',        'icon' => 'bi-speedometer2'],
         ['heading' => 'Manage'],
-        ['label' => 'Players',      'href' => 'admin/players.php',      'icon' => 'bi-people', 'also' => ['profile.php']],
+        ['label' => 'Players',      'href' => 'admin/players.php',      'icon' => 'bi-people', 'also' => ['profile.php', 'players-import.php']],
         ['label' => 'Approvals',    'href' => 'admin/players.php?view=pending', 'icon' => 'bi-person-check', 'badge' => 'pending'],
         ['label' => 'Homepage',     'href' => 'admin/homepage.php',     'icon' => 'bi-house-gear'],
         ['label' => 'Matches',      'href' => 'admin/matches.php',      'icon' => 'bi-calendar-event', 'also' => ['match-add.php', 'match-edit.php']],
