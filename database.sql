@@ -16,14 +16,14 @@ USE `football_tracker`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS
-  `auction_pool`, `auctions`, `comp_ko`, `comp_matches`,
-  `comp_teams`, `mail_log`, `members`, `team_squad`,
-  `team_kits`, `team_records`, `team_hof`, `team_achievements`,
-  `calendar_events`, `match_squad`, `assists`, `goals`,
-  `match_statistics`, `matches`, `gallery`, `trophies`,
-  `competitions`, `venues`, `opponents`, `player_teams`,
-  `players`, `profile`, `teams`, `seasons`,
-  `settings`, `admins`;
+  `assists`, `auction_pool`, `calendar_events`, `comp_ko`,
+  `comp_matches`, `comp_teams`, `gallery`, `goals`,
+  `mail_log`, `match_squad`, `match_statistics`, `members`,
+  `player_teams`, `settings`, `team_achievements`, `team_hof`,
+  `team_kits`, `team_records`, `team_squad`, `trophies`,
+  `auctions`, `matches`, `players`, `admins`,
+  `competitions`, `opponents`, `teams`, `venues`,
+  `seasons`;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---------------------------------------------------------------------
