@@ -6,7 +6,7 @@ declare(strict_types=1);
 <footer class="ft-footer">
   <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-0 gap-md-2">
     <span><i class="bi bi-dribbble"></i> <?= e(setting('site_title', 'Football Tracker')) ?></span>
-    <span class="text-muted-ft">&copy; <?= date('Y') ?> &middot; Personal football profile &amp; match tracker</span>
+    <span class="text-muted-ft">&copy; <?= date('Y') ?> &middot; Personal football profile</span>
   </div>
 </footer>
 <?php $tabbar = ['index.php' => ['Home', 'bi-house'], 'players.php' => ['Players', 'bi-person'], 'teams.php' => ['Teams', 'bi-shield'], 'competitions.php' => ['Tables', 'bi-trophy'], 'calendar.php' => ['Calendar', 'bi-calendar-week']]; ?>
