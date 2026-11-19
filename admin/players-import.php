@@ -6,19 +6,47 @@ $admin = require_login();
 if (isset($_GET['sample'])) {
     header('Content-Type: text/plain; charset=utf-8');
     header('Content-Disposition: attachment; filename="players-sample.txt"');
-    echo "# Name, Position, Jersey, Nickname, Date of birth\n# Only the name is required. Lines starting with # are ignored.\nKarim Rahman, GK, 1, Karim, 2001-04-12\nTanvir Ahmed, Striker, 9\nSohel Rana, CM\nImran Hossain\n";
+    echo "# Name, Position, Jersey, Nickname, Date of birth\n# Only the name is required. Lines starting with # are ignored.\n# You can also group players under headings: a category (Goalkeeper, Defender, Midfielder, Forward)\n# and then a position (CB, LB, RB ...). Players below a heading get that position.\n\nGoalkeeper\nKarim Rahman, 1, Karim, 2001-04-12\n\nDefender\nCB\nSohel Rana, 4\nImran Hossain, 5\nLB\nTanvir Ahmed, 3\nRB\nRafiq Islam, 2\n\nMidfielder\nCM\nNayeem Uddin, 8\n\nForward\nST\nJahid Hasan, 9\n";
     exit;
 }
 
-/** Position code from a code or a name ("ST", "striker", "midfielder"). */
-function import_position(string $s): ?string
+/** Categories and the position a player gets when only the category is given. */
+const IMPORT_CATEGORIES = [
+    'goalkeeper' => ['Goalkeeper', 'GK'], 'goalkeepers' => ['Goalkeeper', 'GK'], 'keeper' => ['Goalkeeper', 'GK'], 'keepers' => ['Goalkeeper', 'GK'], 'gk' => ['Goalkeeper', 'GK'],
+    'defender' => ['Defender', 'CB'], 'defenders' => ['Defender', 'CB'], 'defence' => ['Defender', 'CB'], 'defense' => ['Defender', 'CB'], 'back' => ['Defender', 'CB'], 'backs' => ['Defender', 'CB'],
+    'midfielder' => ['Midfielder', 'CM'], 'midfielders' => ['Midfielder', 'CM'], 'midfield' => ['Midfielder', 'CM'],
+    'forward' => ['Forward', 'ST'], 'forwards' => ['Forward', 'ST'], 'attacker' => ['Forward', 'ST'], 'attackers' => ['Forward', 'ST'], 'attack' => ['Forward', 'ST'],
+];
+const IMPORT_POS_CATEGORY = ['GK' => 'Goalkeeper', 'CB' => 'Defender', 'LB' => 'Defender', 'RB' => 'Defender', 'CDM' => 'Midfielder', 'CM' => 'Midfielder', 'CAM' => 'Midfielder', 'LM' => 'Midfielder', 'RM' => 'Midfielder', 'LW' => 'Forward', 'RW' => 'Forward', 'ST' => 'Forward', 'CF' => 'Forward'];
+
+/** Exact position (code or name or a few synonyms); '' for empty, null for unknown. "Defender" alone means CB. */
+function import_position(string $s, bool $compound = true): ?string
 {
     $s = mb_strtolower(trim($s)); if ($s === '') { return ''; }
     foreach (POSITIONS as $c) { if (mb_strtolower($c) === $s) { return $c; } }
     foreach (POSITION_NAMES as $c => $n) { if (mb_strtolower($n) === $s) { return $c; } }
-    $syn = ['keeper' => 'GK', 'goalie' => 'GK', 'goalkeeper' => 'GK', 'defender' => 'CB', 'centre back' => 'CB', 'center back' => 'CB', 'fullback' => 'LB', 'midfielder' => 'CM', 'midfield' => 'CM',
+    $syn = ['keeper' => 'GK', 'goalie' => 'GK', 'goalkeeper' => 'GK', 'defender' => 'CB', 'centre back' => 'CB', 'center back' => 'CB', 'centre-back' => 'CB', 'center-back' => 'CB', 'central defender' => 'CB',
+            'left back' => 'LB', 'right back' => 'RB', 'fullback' => 'LB', 'full back' => 'LB', 'midfielder' => 'CM', 'midfield' => 'CM', 'defensive midfielder' => 'CDM', 'attacking midfielder' => 'CAM',
             'forward' => 'ST', 'attacker' => 'ST', 'striker' => 'ST', 'winger' => 'LW', 'center forward' => 'CF', 'centre forward' => 'CF'];
-    return $syn[$s] ?? null;
+    if (isset($syn[$s])) { return $syn[$s]; }
+    if (!$compound) { return null; }
+    // "Defender / LB", "Defender - Right Back", "Defender (CB)": the most specific part wins
+    $parts = array_values(array_filter(array_map('trim', preg_split('~[/()\\\\|]|\s+-\s+|\s*:\s*~u', $s)), fn($x) => $x !== ''));
+    if (count($parts) > 1) { for ($i = count($parts) - 1; $i >= 0; $i--) { $p = import_position($parts[$i]); if ($p) { return $p; } } }
+    return null;
+}
+
+/** A heading line ("Defender", "CB:", "[Left Back]", "## Midfielders"): ['cat'=>..,'pos'=>..] or null for an ordinary line. */
+function import_heading(string $line): ?array
+{
+    $t = trim(preg_replace('/^(#+|=+)\s*|\s*(=+|:|-+)$/u', '', $line));
+    $t = trim($t, "[] \t*");
+    if ($t === '' || mb_strlen($t) > 30) { return null; }
+    $k = mb_strtolower($t);
+    if (isset(IMPORT_CATEGORIES[$k])) { return ['cat' => IMPORT_CATEGORIES[$k][0], 'pos' => null, 'def' => IMPORT_CATEGORIES[$k][1]]; }
+    $p = import_position($t, false);
+    if ($p) { return ['cat' => IMPORT_POS_CATEGORY[$p] ?? null, 'pos' => $p, 'def' => $p]; }
+    return null;
 }
 
 function import_date(string $s): ?string
@@ -34,11 +62,14 @@ function import_parse(string $text): array
 {
     if (str_starts_with($text, "\xEF\xBB\xBF")) { $text = substr($text, 3); }
     if (!mb_check_encoding($text, 'UTF-8')) { $text = mb_convert_encoding($text, 'UTF-8', 'Windows-1252'); }
-    $rows = []; $seen = [];
+    $rows = []; $seen = []; $cat = null; $secPos = null; $secDef = null;
     $exists = db()->prepare('SELECT COUNT(*) FROM players WHERE LOWER(full_name) = LOWER(?) AND (date_of_birth <=> ? OR ? IS NULL OR date_of_birth IS NULL)');
     foreach (preg_split('/\r\n|\r|\n/', $text) as $i => $line) {
         $line = trim($line);
-        if ($line === '' || $line[0] === '#') { continue; }
+        if ($line === '') { continue; }
+        $h = import_heading($line);
+        if ($h) { $cat = $h['cat']; $secPos = $h['pos']; $secDef = $h['def']; continue; }   // section heading: players below get this position
+        if ($line[0] === '#') { continue; }
         if (count($rows) >= 500) { $rows[] = ['line' => $i + 1, 'raw' => $line, 'status' => 'skip', 'msg' => 'Limit of 500 players per import reached.']; break; }
         $delim = null; $best = PHP_INT_MAX;
         foreach (["\t", '|', ';', ','] as $d) { $p = strpos($line, $d); if ($p !== false && $p < $best) { $best = $p; $delim = $d; } }
@@ -47,6 +78,8 @@ function import_parse(string $text): array
         $name = trim(preg_replace('/\s+/u', ' ', preg_replace('/[\x00-\x1F\x7F]/u', '', $c[0])));
         $r = ['line' => $i + 1, 'name' => $name, 'pos' => '', 'jersey' => null, 'nick' => '', 'dob' => null, 'status' => 'ok', 'msg' => []];
         if (mb_strlen($name) < 2 || mb_strlen($name) > 100) { $r['status'] = 'skip'; $r['msg'][] = 'Name must be 2-100 characters.'; $rows[] = $r + ['raw' => $line]; continue; }
+        if ($secDef !== null && isset($c[1]) && ctype_digit($c[1])) { array_splice($c, 1, 0, ['']); }   // under a heading the position may be left out: "Name, 4"
+        if (!isset($c[1]) || $c[1] === '') { $r['pos'] = $secPos ?? $secDef ?? ''; }
         if (isset($c[1]) && $c[1] !== '') { $p = import_position($c[1]); if ($p === null) { $r['msg'][] = '"' . $c[1] . '" is not a known position (left empty).'; } else { $r['pos'] = $p; } }
         if (isset($c[2]) && $c[2] !== '') { if (ctype_digit($c[2]) && (int)$c[2] >= 0 && (int)$c[2] <= 99) { $r['jersey'] = (int)$c[2]; } else { $r['msg'][] = 'Jersey "' . $c[2] . '" ignored (use 0-99).'; } }
         if (isset($c[3])) { $r['nick'] = mb_substr($c[3], 0, 60); }
@@ -127,11 +160,21 @@ require ROOT_PATH . '/includes/admin_header.php';
   </form></div>
   <div class="col-lg-5"><div class="ft-card p-4"><h2 class="h6 section-title">File format</h2>
     <p class="small mb-2">Each line: <code>Name, Position, Jersey, Nickname, Date of birth</code></p>
-    <ul class="small mb-2"><li>Only the <b>name</b> is required; add the others in this order if you have them.</li><li>Separate with commas, tabs, semicolons or <code>|</code>.</li><li>Position: <code>GK</code>, <code>ST</code>... or a word like Striker, Midfielder.</li><li>Date: <code>2001-04-12</code> or <code>12/04/2001</code>.</li><li>Players with a name already in the list are skipped. Up to 500 per import.</li></ul>
-    <pre class="small mb-2" style="white-space:pre-wrap">Karim Rahman, GK, 1, Karim, 2001-04-12
-Tanvir Ahmed, Striker, 9
-Sohel Rana, CM
-Imran Hossain</pre>
+    <ul class="small mb-2"><li>Only the <b>name</b> is required; add the others in this order if you have them.</li><li>Separate with commas, tabs, semicolons or <code>|</code>.</li><li>Position: <code>GK</code>, <code>CB</code>, <code>LB</code>, <code>ST</code>... or a word like Defender, Striker, Midfielder (<code>Defender / LB</code> also works).</li><li><b>Headings:</b> put a category line (<code>Defender</code>) and then a position line (<code>CB</code>, <code>LB</code>, <code>RB</code>...). Every player below gets that position, so you can leave the position out.</li><li>Date: <code>2001-04-12</code> or <code>12/04/2001</code>.</li><li>Players with a name already in the list are skipped. Up to 500 per import.</li></ul>
+    <pre class="small mb-2" style="white-space:pre-wrap">Goalkeeper
+Karim Rahman, 1, Karim, 2001-04-12
+
+Defender
+CB
+Sohel Rana, 4
+Imran Hossain, 5
+LB
+Tanvir Ahmed, 3
+RB
+Rafiq Islam, 2
+
+Midfielder
+Nayeem Uddin, CM, 8</pre>
     <a class="btn btn-sm btn-outline-theme" href="<?= e(url('admin/players-import.php?sample=1')) ?>"><i class="bi bi-download"></i> Download a sample file</a></div></div></div>
 <?php endif;
 require ROOT_PATH . '/includes/admin_footer.php';
