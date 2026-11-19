@@ -62,6 +62,13 @@
       if (head) { head.textContent = sel.value; }
     });
   }
-  function boot() { [].forEach.call(document.querySelectorAll('.squad-view[data-fp]'), init); }
+  function sizePicker() {   // "Players on pitch": reload this page with ?pitch=N and come back to the squad
+    [].forEach.call(document.querySelectorAll('[data-pitch-size]'), function (sel) {
+      sel.addEventListener('change', function () {
+        var u = new URL(window.location.href); u.searchParams.set('pitch', sel.value); u.hash = 'squad'; window.location.href = u.toString();
+      });
+    });
+  }
+  function boot() { sizePicker(); [].forEach.call(document.querySelectorAll('.squad-view[data-fp]'), init); }
   if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
 })();

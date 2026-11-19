@@ -161,10 +161,29 @@ function calendar_team_names(): array
     return array_values(array_unique($n));
 }
 
+/** Number of players a team puts on the pitch (5-a-side ... 11-a-side). Adds the column once. */
+function ft_pitch_size_ensure(): void
+{
+    $pdo = db();
+    $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'pitch_size_v'")->fetchColumn();
+    if ($v === '1') { return; }
+    if (!$pdo->query("SHOW COLUMNS FROM teams LIKE 'pitch_size'")->fetch()) { $pdo->exec('ALTER TABLE teams ADD COLUMN pitch_size TINYINT UNSIGNED NOT NULL DEFAULT 11'); }
+    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['pitch_size_v', '1']);
+}
+
+/** Pitch size of a team (clamped to 5-11). */
+function team_pitch_size(int $teamId): int
+{
+    $st = db()->prepare('SELECT pitch_size FROM teams WHERE id = ?'); $st->execute([$teamId]);
+    $n = (int)$st->fetchColumn();
+    return $n >= 5 && $n <= 11 ? $n : 11;
+}
+
 /** Adds the "starting XI" flag to the team squad once. */
 function ft_squad_ensure(): void
 {
     $pdo = db();
+    ft_pitch_size_ensure();
     $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'squad_starter_v'")->fetchColumn();
     if ($v === '1') { return; }
     if ($pdo->query("SHOW TABLES LIKE 'team_squad'")->fetch() && !$pdo->query("SHOW COLUMNS FROM team_squad LIKE 'is_starter'")->fetch()) {
@@ -177,24 +196,26 @@ function ft_squad_ensure(): void
  * Pitch view of a team squad. The starting XI (flagged by the admin, or picked automatically from positions)
  * stands on a horizontal pitch, own goal on the left; everyone else is listed as substitutes.
  */
-function team_pitch(array $squad): string
+function team_pitch(array $squad, int $size = 11): string
 {
+    $size = in_array($size, PITCH_SIZES, true) ? $size : 11;
     $line = ['GK' => ['gk', 8, 1], 'LB' => ['def', 26, 0], 'CB' => ['def', 26, 1], 'RB' => ['def', 26, 2], 'CDM' => ['dm', 40, 1], 'LM' => ['mid', 53, 0], 'CM' => ['mid', 53, 1],
              'RM' => ['mid', 53, 2], 'CAM' => ['am', 66, 1], 'LW' => ['fwd', 82, 0], 'ST' => ['fwd', 85, 1], 'CF' => ['fwd', 85, 1], 'RW' => ['fwd', 82, 2]];
     $info = fn(array $p) => $line[$p['position'] ?? ''] ?? ['mid', 53, 1];
-    $starters = array_values(array_filter($squad, fn($p) => !empty($p['is_starter'])));
-    if (!$starters) {
-        $want = ['gk' => 1, 'def' => 4, 'dm' => 0, 'mid' => 4, 'am' => 0, 'fwd' => 2]; $have = array_fill_keys(array_keys($want), 0); $ids = [];
-        foreach ($squad as $p) { $g = $info($p)[0]; if ($have[$g] < $want[$g] && count($ids) < 11) { $have[$g]++; $ids[$p['id']] = true; } }
-        foreach ($squad as $p) { if (count($ids) < 11 && !isset($ids[$p['id']])) { $ids[$p['id']] = true; } }
-        $starters = array_values(array_filter($squad, fn($p) => isset($ids[$p['id']])));
-    }
-    $starters = array_slice($starters, 0, 11);
+    // players per line (defence, midfield, attack) for each pitch size; the goalkeeper is always one more
+    $shape = [5 => [1, 2, 1], 6 => [2, 2, 1], 7 => [2, 3, 1], 8 => [3, 3, 1], 9 => [3, 3, 2], 10 => [4, 4, 1], 11 => [4, 4, 2]][$size];
+    $bucket = function (array $p) use ($info) { $g = $info($p)[0]; return in_array($g, ['dm', 'am'], true) ? 'mid' : $g; };
+    $pool = array_values(array_filter($squad, fn($p) => !empty($p['is_starter'])));
+    if (!$pool) { $pool = $squad; }                     // nobody flagged: choose automatically from the whole squad
+    $want = ['gk' => 1, 'def' => $shape[0], 'mid' => $shape[1], 'fwd' => $shape[2]]; $have = array_fill_keys(array_keys($want), 0); $ids = [];
+    foreach ($pool as $p) { $g = $bucket($p); if (count($ids) < $size && $have[$g] < $want[$g]) { $have[$g]++; $ids[$p['id']] = true; } }
+    foreach ($pool as $p) { if (count($ids) < $size && !isset($ids[$p['id']])) { $ids[$p['id']] = true; } }
+    $starters = array_values(array_filter($pool, fn($p) => isset($ids[$p['id']])));
     $isStart = array_flip(array_column($starters, 'id'));
     $subs = array_filter($squad, fn($p) => !isset($isStart[$p['id']]));
     $groups = [];
     foreach ($starters as $p) { $i = $info($p); $groups[$i[0]]['x'] = $i[1]; $groups[$i[0]]['p'][] = [$i[2], $p]; }
-    $h = '<div class="squad-view team-pitch" data-fp="team" data-h="1">' . formation_picker('team') . '<div class="pitch pitch-h">' . pitch_svg(true);
+    $h = '<div class="squad-view team-pitch" data-fp="team" data-h="1">' . formation_picker('team', '', $size) . '<div class="pitch pitch-h">' . pitch_svg(true);
     foreach ($groups as $g) {
         usort($g['p'], fn($a, $b) => [$a[0], $a[1]['shirt_number'] ?? 99] <=> [$b[0], $b[1]['shirt_number'] ?? 99]);
         $n = count($g['p']);

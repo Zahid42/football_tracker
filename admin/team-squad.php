@@ -5,6 +5,18 @@ require_login();
 ft_team_schema_ensure();
 $sqTid = admin_team_id();
 
+/** How many players stand on the pitch for this team (5-a-side ... 11-a-side). */
+if ($sqTid && is_post() && post('op') === 'pitch_size') {
+    csrf_require();
+    $n = (int)post('pitch_size');
+    if (in_array($n, PITCH_SIZES, true)) {
+        db()->prepare('UPDATE teams SET pitch_size = ? WHERE id = ?')->execute([$n, $sqTid]);
+        $flag = (int)db()->query('SELECT COUNT(*) FROM team_squad WHERE team_id = ' . $sqTid . ' AND is_starter = 1')->fetchColumn();
+        flash_set('success', 'The pitch now holds ' . $n . ' players.' . ($flag > $n ? ' ' . $flag . ' players are ticked as starters, so only the first ' . $n . ' (balanced by position) are shown; untick the extra ones to choose yourself.' : ''));
+    } else { flash_set('danger', 'Choose a pitch size from 5 to 11.'); }
+    redirect('admin/team-squad.php');
+}
+
 /** Add players picked from the overall player list straight into this team's squad. */
 if ($sqTid && is_post() && post('op') === 'add_players') {
     csrf_require();
@@ -35,6 +47,12 @@ if ($sqTid && is_post() && post('op') === 'add_players') {
 
 team_admin_page('team-squad.php', [
     'before_list' => function () use ($sqTid) {
+        $size = team_pitch_size($sqTid);
+        echo '<form method="post" class="ft-card p-3 mb-3 d-flex flex-wrap gap-2 align-items-center">' . csrf_field() . '<input type="hidden" name="op" value="pitch_size">'
+           . '<label class="fw-semibold mb-0" for="pitchSize"><i class="bi bi-people"></i> Players allowed on the pitch</label>'
+           . '<select class="form-select w-auto" id="pitchSize" name="pitch_size">';
+        foreach (PITCH_SIZES as $n) { echo '<option value="' . $n . '"' . ($n === $size ? ' selected' : '') . '>' . $n . ' (' . $n . '-a-side)</option>'; }
+        echo '</select><button class="btn btn-outline-theme btn-sm">Save</button><span class="small text-muted-ft">Used for the team pitch view and the Starting XI limit.</span></form>';
         $st = db()->prepare("SELECT p.id, p.full_name, p.nickname, p.preferred_position, p.jersey_number, p.public_code, t.name AS team_name FROM players p LEFT JOIN teams t ON t.id = p.current_team_id
             WHERE p.approval_status = 'approved' AND p.id NOT IN (SELECT player_id FROM team_squad WHERE team_id = ? AND player_id IS NOT NULL) ORDER BY p.full_name");
         $st->execute([$sqTid]); $list = $st->fetchAll();
@@ -64,7 +82,7 @@ team_admin_page('team-squad.php', [
         echo '</form></div></div>';
     },
     'table' => 'team_squad', 'title' => 'Current Squad', 'singular' => 'Squad Player', 'icon' => 'bi-people',
-    'intro' => 'Up to ' . SQUAD_MAX . ' players per team. Tick "Starting XI" for up to 11 players: they stand on the pitch by position (if none are ticked, the pitch is picked automatically).',
+    'intro' => 'Up to ' . SQUAD_MAX . ' players per team. Set how many players are allowed on the pitch, then tick "Starting XI" for that many: they stand on the pitch by position (if none are ticked, the pitch is picked automatically).',
     'search' => ['t.name'], 'order' => 't.shirt_number IS NULL, t.shirt_number, t.name',
     'before_save' => function (array &$data, ?array $existing) {
         $tid = $existing ? (int)$existing['team_id'] : admin_team_id();
@@ -74,7 +92,8 @@ team_admin_page('team-squad.php', [
         }
         if (!empty($data['is_starter'])) {
             $c = db()->prepare('SELECT COUNT(*) FROM team_squad WHERE team_id = ? AND is_starter = 1 AND id <> ?'); $c->execute([$tid, (int)($existing['id'] ?? 0)]);
-            if ((int)$c->fetchColumn() >= 11) { return 'The starting XI already has 11 players. Untick someone first.'; }
+            $lim = team_pitch_size($tid);
+            if ((int)$c->fetchColumn() >= $lim) { return 'The pitch is set to ' . $lim . ' players and ' . $lim . ' are already ticked as starters. Untick someone first, or raise the pitch size above.'; }
         }
         if (!empty($data['shirt_number'])) {
             $d = db()->prepare('SELECT COUNT(*) FROM team_squad WHERE team_id = ? AND shirt_number = ? AND id <> ?'); $d->execute([$tid, $data['shirt_number'], (int)($existing['id'] ?? 0)]);

@@ -760,3 +760,23 @@ a.team-link:hover { color: var(--accent); border-bottom-style: solid; }
 .team-pitch .pl .pname { font-size: clamp(.55rem, 1.4vw, .68rem); margin-top: 2px; }
 .team-pitch .pl .ppos { font-size: .5rem; }
 .team-pitch .pl .cap { width: 13px; height: 13px; font-size: .5rem; top: -5px; right: -6px; }
+
+/* ---- responsive polish (phones & tablets) ---- */
+.stat-value { overflow-wrap: anywhere; }
+[class*="col-"] > .ft-card, [class*="col-"] > .stat-card { min-width: 0; }
+.fp-bar { flex-wrap: wrap; }
+.fp-select { min-width: 11rem; }
+img, video, svg { max-width: 100%; }
+@media (max-width: 575.98px) {
+  .stat-value { font-size: 1.45rem; }
+  .fp-bar .fp-lab { flex: 0 0 100%; margin-top: .2rem; }
+  .fp-bar .fp-select { flex: 1 1 100%; max-width: none; }
+  select.form-select.w-auto, .form-control.w-auto { width: 100% !important; max-width: 100%; }
+  .container, .container-fluid { padding-inline: .9rem; }
+  .team-pitch { padding: .45rem; }
+}
+@media (max-width: 767.98px) {
+  .table-responsive { -webkit-overflow-scrolling: touch; }
+  .btn, .form-select, .form-control { min-height: 40px; }
+}
+@media (max-width: 767.98px) { .snap-fab { padding: .5rem .62rem; right: 10px; opacity: .92; } .snap-fab i { font-size: 1.05rem; } }

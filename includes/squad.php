@@ -38,6 +38,33 @@ function ft_build_formations(): array
     return $out;
 }
 define('FORMATIONS', ft_build_formations());
+
+/** Smaller games (5- to 10-a-side): key "2-3-1" = lines of outfield players, plus the goalkeeper. */
+function ft_build_small_formations(): array
+{
+    $sets = [
+        5  => ['2-2', '1-2-1', '2-1-1', '1-1-2', '1-3', '3-1'],
+        6  => ['2-2-1', '2-1-2', '3-2', '1-3-1', '2-3', '1-2-2'],
+        7  => ['2-3-1', '3-2-1', '2-2-2', '3-1-2', '1-3-2', '3-3', '2-1-3'],
+        8  => ['3-3-1', '3-2-2', '2-3-2', '4-2-1', '3-4', '2-4-1', '4-3'],
+        9  => ['3-3-2', '3-4-1', '4-3-1', '3-2-3', '4-2-2', '2-4-2', '4-4'],
+        10 => ['4-4-1', '4-3-2', '3-4-2', '4-2-3', '3-5-1', '5-3-1', '3-3-3', '4-5'],
+    ];
+    $out = [];
+    foreach ($sets as $size => $keys) {
+        foreach ($keys as $k) {
+            $nums = array_map('intval', explode('-', $k)); $n = count($nums); $lines = [['GK']];
+            foreach ($nums as $i => $c) { $lines[] = ft_line_positions($i, $n, $c); }
+            $out[$k] = $lines;
+        }
+    }
+    return $out;
+}
+/** Every formation, any size: used by the pitch picker (a key always means one size: players = sum + 1). */
+define('FORMATIONS_ALL', FORMATIONS + ft_build_small_formations());
+const PITCH_SIZES = [5, 6, 7, 8, 9, 10, 11];
+
+function formation_size(string $key): int { return array_sum(array_map('intval', explode('-', $key))) + 1; }
 const MAX_SUBS = 7;
 
 /** Slots for a formation: list of ['slot'=>1..11,'pos'=>'GK','x'=>%,'y'=>%]. */
@@ -126,16 +153,22 @@ function render_pitch(array $match, array $squad, bool $horizontal = false): str
 }
 
 /** Formation picker shown above every pitch. $mode 'match' keeps the recorded line-up order; 'team' places players by their positions. */
-function formation_picker(string $mode, string $current = ''): string
+function formation_picker(string $mode, string $current = '', int $size = 11): string
 {
     static $loaded = false;
     $h = '<div class="fp-bar"><label class="fp-lab" for="fp-' . ($id = bin2hex(random_bytes(3))) . '"><i class="bi bi-diagram-3"></i> Formation</label><select class="form-select form-select-sm fp-select" id="fp-' . $id . '">';
     $h .= $mode === 'team' ? '<option value="">Auto (by player positions)</option>' : '<option value="">' . e($current !== '' ? $current . ' (as played)' : 'As recorded') . '</option>';
-    foreach (array_keys(FORMATIONS) as $f) { $h .= '<option value="' . e($f) . '">' . e($f) . '</option>'; }
-    $h .= '</select></div>';
+    foreach (array_keys(FORMATIONS_ALL) as $f) { if (formation_size($f) === $size) { $h .= '<option value="' . e($f) . '">' . e($f) . '</option>'; } }
+    $h .= '</select>';
+    if ($mode === 'team') {   // how many players stand on the pitch: reloads the page with ?pitch=N
+        $h .= '<label class="fp-lab ms-md-3" for="ps-' . $id . '"><i class="bi bi-people"></i> Players on pitch</label><select class="form-select form-select-sm fp-select fp-size" id="ps-' . $id . '" data-pitch-size>';
+        foreach (PITCH_SIZES as $n) { $h .= '<option value="' . $n . '"' . ($n === $size ? ' selected' : '') . '>' . $n . ' (' . $n . '-a-side)</option>'; }
+        $h .= '</select>';
+    }
+    $h .= '</div>';
     if (!$loaded) {
         $loaded = true;
-        $h .= '<script>window.FT_FORMATIONS=' . json_encode(FORMATIONS) . ';</script><script src="' . e(url('assets/js/pitch.js') . '?v=' . (int)@filemtime(ROOT_PATH . '/assets/js/pitch.js')) . '" defer></script>';
+        $h .= '<script>window.FT_FORMATIONS=' . json_encode(FORMATIONS_ALL) . ';</script><script src="' . e(url('assets/js/pitch.js') . '?v=' . (int)@filemtime(ROOT_PATH . '/assets/js/pitch.js')) . '" defer></script>';
     }
     return $h;
 }
