@@ -47,6 +47,19 @@ function comp_team_names(): array
     return array_values(array_unique(db()->query('SELECT name FROM teams UNION SELECT name FROM opponents ORDER BY name')->fetchAll(PDO::FETCH_COLUMN)));
 }
 
+/** A team's name as a link to its public profile; plain text when it is not a team with a profile (e.g. a guest opponent or BYE). */
+function comp_team_link(?string $name): string
+{
+    static $map = null;
+    if ($map === null) {
+        $map = [];
+        foreach (db()->query('SELECT id, name FROM teams ORDER BY id DESC')->fetchAll() as $t) { $map[mb_strtolower($t['name'])] = (int)$t['id']; }   // oldest team wins on a repeated name
+    }
+    $name = (string)$name;
+    $id = $map[mb_strtolower($name)] ?? 0;
+    return $id ? '<a class="team-link" href="' . e(team_url_by_id($id)) . '">' . e($name) . '</a>' : e($name);
+}
+
 /** Competition the admin is working on (kept in the session, like the team picker). */
 function admin_comp_id(): int
 {
@@ -292,7 +305,7 @@ function comp_bracket_html(int $cid): string
             foreach (['a', 'b'] as $side) {
                 $name = $t['team_' . $side]; $sc = $t['score_' . $side]; $pen = $t['pen_' . $side];
                 $cls = 'ko-team' . ($w !== null && $w === $name ? ' win' : '') . ($name === 'BYE' ? ' bye' : '');
-                $h .= '<div class="' . $cls . '"><span class="ko-name">' . ($name === null ? '<i>TBD</i>' : e($name)) . '</span><span class="ko-sc">' . ($sc === null ? '' : (int)$sc . ($pen !== null ? ' <small>(' . (int)$pen . ')</small>' : '')) . '</span></div>';
+                $h .= '<div class="' . $cls . '"><span class="ko-name">' . ($name === null ? '<i>TBD</i>' : comp_team_link($name)) . '</span><span class="ko-sc">' . ($sc === null ? '' : (int)$sc . ($pen !== null ? ' <small>(' . (int)$pen . ')</small>' : '')) . '</span></div>';
             }
             $h .= '</div>';
         }
@@ -300,6 +313,6 @@ function comp_bracket_html(int $cid): string
     }
     $last = end($ko)[0] ?? null;
     $champ = $last ? comp_ko_winner($last) : null;
-    if ($champ) { $h .= '<div class="ko-round"><div class="ko-title">Champion</div><div class="ko-ties"><div class="ko-tie ko-champ"><div class="ko-team win"><span class="ko-name"><i class="bi bi-trophy-fill"></i> ' . e($champ) . '</span></div></div></div></div>'; }
+    if ($champ) { $h .= '<div class="ko-round"><div class="ko-title">Champion</div><div class="ko-ties"><div class="ko-tie ko-champ"><div class="ko-team win"><span class="ko-name"><i class="bi bi-trophy-fill"></i> ' . comp_team_link($champ) . '</span></div></div></div></div>'; }
     return $h . '</div></div>';
 }

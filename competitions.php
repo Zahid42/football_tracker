@@ -57,7 +57,7 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
           <?php foreach ($rows as $i => $r): ?>
             <?php $qn = $mode === 'Groups' ? (int)$cur['qualify_per_group'] : (int)$cur['ko_teams']; ?>
             <tr class="<?= $i === 0 && !$r['susp'] ? 'comp-first' : '' ?><?= !$r['susp'] && $qn && $i < $qn && !empty($cur['knockout']) ? ' comp-qual' : '' ?><?= $r['susp'] ? ' comp-susp' : '' ?>">
-              <td><?= $i + 1 ?></td><td class="fw-semibold"><?= e($r['team']) ?><?= $r['susp'] ? ' <span class="badge text-bg-danger">Suspended</span>' : '' ?></td>
+              <td><?= $i + 1 ?></td><td class="fw-semibold"><?= comp_team_link($r['team']) ?><?= $r['susp'] ? ' <span class="badge text-bg-danger">Suspended</span>' : '' ?></td>
               <td class="text-center"><?= $r['p'] ?></td><td class="text-center"><?= $r['w'] ?></td><td class="text-center"><?= $r['d'] ?></td><td class="text-center"><?= $r['l'] ?></td>
               <td class="text-center"><?= $r['gf'] ?></td><td class="text-center"><?= $r['ga'] ?></td><td class="text-center"><?= $r['gd'] > 0 ? '+' : '' ?><?= $r['gd'] ?></td>
               <td class="text-center fw-bold"><?= $r['pts'] ?><?php if ($r['adj']): ?> <sup class="<?= $r['adj'] < 0 ? 'adj-neg' : 'adj-pos' ?>" title="<?= e($r['why']) ?>"><?= $r['adj'] > 0 ? '+' : '' ?><?= $r['adj'] ?></sup><?php endif; ?></td>
@@ -77,7 +77,7 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
       <div class="row-list"><?php foreach (array_reverse($res) as $r): ?>
         <div class="row-item">
           <span class="ri-date"><b><?= $r['date'] ? e(fmt_date($r['date'], 'd')) : '-' ?></b><small><?= $r['date'] ? e(fmt_date($r['date'], 'M Y')) : '' ?></small></span>
-          <span class="ri-main"><b><?= e($r['home']) ?> <?= $r['hs'] === null ? 'vs' : $r['hs'] . ' - ' . $r['as'] ?> <?= e($r['away']) ?></b><small><?= e((string)($r['stage'] ?? '')) ?></small></span>
+          <span class="ri-main"><b><?= comp_team_link($r['home']) ?> <?= $r['hs'] === null ? 'vs' : $r['hs'] . ' - ' . $r['as'] ?> <?= comp_team_link($r['away']) ?></b><small><?= e((string)($r['stage'] ?? '')) ?></small></span>
           <span class="ri-pill <?= $r['hs'] === null ? 'k-match' : '' ?>"><?= $r['hs'] === null ? 'Upcoming' : 'FT' ?></span>
         </div><?php endforeach; ?></div>
     <?php endif; ?>
