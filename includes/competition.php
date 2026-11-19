@@ -71,7 +71,8 @@ function comp_admin_bar(string $self): void
        . '<select class="form-select w-auto" name="comp" onchange="this.form.submit()">';
     foreach ($rows as $r) { echo '<option value="' . (int)$r['id'] . '"' . ((int)$r['id'] === $cid ? ' selected' : '') . '>' . e($r['name']) . ' (' . e($r['format']) . ')</option>'; }
     echo '</select><a class="btn btn-outline-theme btn-sm" target="_blank" rel="noopener" href="' . e(competition_url_by_id($cid)) . '"><i class="bi bi-eye"></i> View public table</a>'
-       . '<a class="btn btn-outline-theme btn-sm" href="' . e(url('admin/competitions.php?action=edit&id=' . $cid)) . '"><i class="bi bi-gear"></i> Rules (teams, groups, knockout)</a></form><div class="tp-tabs">';
+       . '<a class="btn btn-outline-theme btn-sm" href="' . e(url('admin/competitions.php?action=edit&id=' . $cid)) . '"><i class="bi bi-gear"></i> Rules (teams, groups, knockout)</a>'
+       . '<a class="btn btn-accent btn-sm ms-md-auto" href="' . e(url('admin/comp-teams-import.php?comp=' . $cid)) . '"><i class="bi bi-file-earmark-arrow-up"></i> Import team list</a></form><div class="tp-tabs">';
     foreach (COMP_TABS as $file => [$label, $icon]) {
         echo '<a class="tp-tab' . ($file === $self ? ' active' : '') . '" href="' . e(url('admin/' . $file)) . '"><i class="bi ' . $icon . '"></i> ' . e($label) . '</a>';
     }

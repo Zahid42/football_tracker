@@ -40,7 +40,7 @@ function admin_nav(): array
         ['label' => 'Teams',        'href' => 'admin/teams.php',        'icon' => 'bi-shield'],
         ['label' => 'Team Profile', 'href' => 'admin/team-squad.php',   'icon' => 'bi-person-badge', 'also' => ['team-kits.php', 'team-records.php', 'team-achievements.php', 'team-hof.php']],
         ['label' => 'Competitions', 'href' => 'admin/competitions.php', 'icon' => 'bi-award'],
-        ['label' => 'Competition Tables', 'href' => 'admin/comp-teams.php', 'icon' => 'bi-table', 'also' => ['comp-matches.php', 'comp-knockout.php', 'comp-auction.php']],
+        ['label' => 'Competition Tables', 'href' => 'admin/comp-teams.php', 'icon' => 'bi-table', 'also' => ['comp-matches.php', 'comp-knockout.php', 'comp-auction.php', 'comp-teams-import.php']],
         ['label' => 'Seasons',      'href' => 'admin/seasons.php',      'icon' => 'bi-calendar3'],
         ['label' => 'Venues',       'href' => 'admin/venues.php',       'icon' => 'bi-geo-alt'],
         ['label' => 'Goals',        'href' => 'admin/goals.php',        'icon' => 'bi-bullseye'],
