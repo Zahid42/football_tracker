@@ -103,7 +103,8 @@ function team_admin_page(string $self, array $cfg): void
     if (!$tid) { flash_set('warning', 'Create a team first.'); redirect('admin/teams.php'); }
     $userBefore = $cfg['before_save'] ?? null;
     $cfg['scope'] = fn() => 't.team_id = ' . $tid;
-    $cfg['before_list'] = function () use ($self) { team_admin_bar($self); };
+    $userList = $cfg['before_list'] ?? null;
+    $cfg['before_list'] = function () use ($self, $userList) { team_admin_bar($self); if ($userList) { $userList(); } };
     $cfg['before_save'] = function (array &$data, ?array $existing) use ($tid, $userBefore) {
         $data['team_id'] = $existing ? (int)$existing['team_id'] : $tid;
         return $userBefore ? $userBefore($data, $existing) : null;
