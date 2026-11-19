@@ -162,11 +162,12 @@ function calendar_team_names(): array
 }
 
 /** Number of players a team puts on the pitch (5-a-side ... 11-a-side). Adds the column once. */
-function ft_pitch_size_ensure(): void
+function ft_pitch_size_ensure(bool $verify = false): void
 {
     $pdo = db();
-    $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'pitch_size_v'")->fetchColumn();
-    if ($v === '1') { return; }
+    static $verified = false;
+    if ($verify) { if ($verified) { return; } $verified = true; }   // $verify: also re-check the column when the "done" flag is already set
+    elseif ($pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'pitch_size_v'")->fetchColumn() === '1') { return; }
     if (!$pdo->query("SHOW COLUMNS FROM teams LIKE 'pitch_size'")->fetch()) { $pdo->exec('ALTER TABLE teams ADD COLUMN pitch_size TINYINT UNSIGNED NOT NULL DEFAULT 11'); }
     $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['pitch_size_v', '1']);
 }
@@ -174,8 +175,11 @@ function ft_pitch_size_ensure(): void
 /** Pitch size of a team (clamped to 5-11). */
 function team_pitch_size(int $teamId): int
 {
-    $st = db()->prepare('SELECT pitch_size FROM teams WHERE id = ?'); $st->execute([$teamId]);
-    $n = (int)$st->fetchColumn();
+    try {
+        ft_pitch_size_ensure(true);
+        $st = db()->prepare('SELECT pitch_size FROM teams WHERE id = ?'); $st->execute([$teamId]);
+        $n = (int)$st->fetchColumn();
+    } catch (Throwable $e) { return 11; }   // never let this break a page
     return $n >= 5 && $n <= 11 ? $n : 11;
 }
 

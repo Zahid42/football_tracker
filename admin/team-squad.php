@@ -10,7 +10,8 @@ if ($sqTid && is_post() && post('op') === 'pitch_size') {
     csrf_require();
     $n = (int)post('pitch_size');
     if (in_array($n, PITCH_SIZES, true)) {
-        db()->prepare('UPDATE teams SET pitch_size = ? WHERE id = ?')->execute([$n, $sqTid]);
+        try { ft_pitch_size_ensure(true); db()->prepare('UPDATE teams SET pitch_size = ? WHERE id = ?')->execute([$n, $sqTid]); }
+        catch (Throwable $e) { flash_set('danger', 'Could not save the pitch size: the database refused the update.'); redirect('admin/team-squad.php'); }
         $flag = (int)db()->query('SELECT COUNT(*) FROM team_squad WHERE team_id = ' . $sqTid . ' AND is_starter = 1')->fetchColumn();
         flash_set('success', 'The pitch now holds ' . $n . ' players.' . ($flag > $n ? ' ' . $flag . ' players are ticked as starters, so only the first ' . $n . ' (balanced by position) are shown; untick the extra ones to choose yourself.' : ''));
     } else { flash_set('danger', 'Choose a pitch size from 5 to 11.'); }

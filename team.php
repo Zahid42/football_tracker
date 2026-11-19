@@ -31,7 +31,7 @@ $m->execute([$t['id']]); $ms = $m->fetchAll();
   <div class="section-head" id="squad"><h2>Current Squad</h2><span class="text-muted-ft"><?= count($squad) ?> / <?= SQUAD_MAX ?> players</span></div>
   <?php if (!$squad): ?><p class="text-muted-ft mb-4">The squad has not been announced yet.</p><?php else: ?>
   <div class="sw-tabs mb-3" role="tablist"><button class="sw-tab active" type="button" data-sqv="pitch"><i class="bi bi-diagram-3"></i> Pitch view</button><button class="sw-tab" type="button" data-sqv="list"><i class="bi bi-list-ul"></i> List view</button></div>
-  <div id="sqv-pitch" class="mb-4"><?= team_pitch($squad, isset($_GET['pitch']) && in_array((int)$_GET['pitch'], PITCH_SIZES, true) ? (int)$_GET['pitch'] : team_pitch_size((int)$t['id'])) ?></div>
+  <div id="sqv-pitch" class="mb-4"><?php try { echo team_pitch($squad, isset($_GET['pitch']) && in_array((int)$_GET['pitch'], PITCH_SIZES, true) ? (int)$_GET['pitch'] : team_pitch_size((int)$t['id'])); } catch (Throwable $e) { echo '<p class="text-muted-ft">The pitch view could not be drawn. Use the list view.</p>'; } ?></div>
   <div class="row-list mb-4" id="sqv-list" hidden><?php foreach ($squad as $s): ?>
     <<?= $s['public_code'] ? 'a href="' . e(url($s['public_code'])) . '"' : 'div' ?> class="row-item squad-member">
       <span class="sq-no"><?= $s['shirt_number'] !== null ? (int)$s['shirt_number'] : '-' ?></span>
