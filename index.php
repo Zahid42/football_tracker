@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/config/config.php';
 $pageTitle  = 'Home';
 $activePage = 'index.php';
+$mainClass  = 'is-home';
 require __DIR__ . '/includes/header.php';
 $counts = [
     ['Players', (int)db()->query("SELECT COUNT(*) FROM players WHERE approval_status = 'approved' AND is_active = 1")->fetchColumn(), 'bi-person', 'players.php'],

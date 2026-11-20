@@ -807,3 +807,8 @@ body.public-body > .ft-footer { flex-shrink: 0; margin-top: 2rem; margin-bottom:
 /* everything between the navbar and the footer sits a little lower */
 body.public-body > main { padding-top: 1.5rem; }
 @media (max-width: 767.98px) { body.public-body > main { padding-top: 1rem; } }
+
+/* homepage: the whole block (title, search, stats) sits exactly in the middle, between the navbar and the footer */
+body.public-body > main.is-home { display: flex; flex-direction: column; padding-top: 0; }
+main.is-home > .home-search { flex: 1 1 auto; justify-content: center; min-height: 0; padding-top: 1.5rem; padding-bottom: 1.5rem; }
+main.is-home + .ft-footer { margin-top: 0 !important; }
