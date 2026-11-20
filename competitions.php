@@ -51,15 +51,15 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
     <?php foreach ($groups as $gname => $rows): ?>
       <div class="<?= $mode === 'Groups' ? 'col-12 col-xl-6' : 'col-12' ?>"><div class="ft-card p-0 overflow-hidden">
         <?php if ($mode === 'Groups'): ?><div class="px-3 py-2 fw-bold section-title"><i class="bi bi-grid-3x3-gap"></i> <?= e($gname) ?></div><?php endif; ?>
-        <div class="table-responsive"><table class="table comp-table align-middle mb-0">
-          <thead><tr><th>#</th><th>Team</th><th class="text-center">P</th><th class="text-center">W</th><th class="text-center">D</th><th class="text-center">L</th><th class="text-center">GF</th><th class="text-center">GA</th><th class="text-center">GD</th><th class="text-center">Pts</th><th class="d-none d-md-table-cell">Form</th></tr></thead>
+        <div class="table-responsive"><table class="table comp-table comp-standings align-middle mb-0">
+          <thead><tr><th>#</th><th>Team</th><th class="text-center">P</th><th class="text-center">W</th><th class="text-center">D</th><th class="text-center">L</th><th class="text-center d-none d-sm-table-cell">GF</th><th class="text-center d-none d-sm-table-cell">GA</th><th class="text-center">GD</th><th class="text-center">Pts</th><th class="d-none d-md-table-cell">Form</th></tr></thead>
           <tbody>
           <?php foreach ($rows as $i => $r): ?>
             <?php $qn = $mode === 'Groups' ? (int)$cur['qualify_per_group'] : (int)$cur['ko_teams']; ?>
             <tr class="<?= $i === 0 && !$r['susp'] ? 'comp-first' : '' ?><?= !$r['susp'] && $qn && $i < $qn && !empty($cur['knockout']) ? ' comp-qual' : '' ?><?= $r['susp'] ? ' comp-susp' : '' ?>">
               <td><?= $i + 1 ?></td><td class="fw-semibold"><?= comp_team_link($r['team']) ?><?= $r['susp'] ? ' <span class="badge text-bg-danger">Suspended</span>' : '' ?></td>
               <td class="text-center"><?= $r['p'] ?></td><td class="text-center"><?= $r['w'] ?></td><td class="text-center"><?= $r['d'] ?></td><td class="text-center"><?= $r['l'] ?></td>
-              <td class="text-center"><?= $r['gf'] ?></td><td class="text-center"><?= $r['ga'] ?></td><td class="text-center"><?= $r['gd'] > 0 ? '+' : '' ?><?= $r['gd'] ?></td>
+              <td class="text-center d-none d-sm-table-cell"><?= $r['gf'] ?></td><td class="text-center d-none d-sm-table-cell"><?= $r['ga'] ?></td><td class="text-center"><?= $r['gd'] > 0 ? '+' : '' ?><?= $r['gd'] ?></td>
               <td class="text-center fw-bold"><?= $r['pts'] ?><?php if ($r['adj']): ?> <sup class="<?= $r['adj'] < 0 ? 'adj-neg' : 'adj-pos' ?>" title="<?= e($r['why']) ?>"><?= $r['adj'] > 0 ? '+' : '' ?><?= $r['adj'] ?></sup><?php endif; ?></td>
               <td class="d-none d-md-table-cell"><?php foreach ($r['form'] as $f): ?><span class="sr-res result-<?= ['W' => 'win', 'D' => 'draw', 'L' => 'loss'][$f] ?> form-dot"><?= $f ?></span><?php endforeach; ?></td>
             </tr>

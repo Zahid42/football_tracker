@@ -794,3 +794,14 @@ body.public-body > .ft-footer { flex-shrink: 0; margin-top: 2rem; margin-bottom:
 .hb-row .form-select { flex: 1 1 150px; min-width: 0; width: auto; }
 .hb-row .btn { flex: 0 0 auto; }
 @media (max-width: 575.98px) { .home-search { min-height: 0; padding-top: 2.2rem; } .hb-row .form-select, .hb-row .btn { flex: 1 1 100%; } }
+
+/* league / group table: fits a phone screen without sideways scrolling (GF/GA hidden under 576px, GD and Pts stay) */
+.comp-standings { width: 100%; }
+.comp-standings td.fw-bold:nth-last-child(2), .comp-standings td.fw-bold:last-child { color: var(--accent); }
+@media (max-width: 575.98px) {
+  .comp-standings th, .comp-standings td { padding: .5rem .3rem; font-size: .85rem; }
+  .comp-standings th:first-child, .comp-standings td:first-child { padding-left: .6rem; width: 1.6rem; }
+  .comp-standings td:nth-child(2) { min-width: 0; word-break: break-word; line-height: 1.2; }
+  .comp-standings th:nth-child(n+3), .comp-standings td:nth-child(n+3) { width: 1.9rem; }
+  .comp-standings th:last-child, .comp-standings td:last-child { padding-right: .6rem; }
+}
