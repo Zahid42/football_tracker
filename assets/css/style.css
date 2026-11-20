@@ -831,3 +831,6 @@ main.is-home + .ft-footer { margin-top: 0 !important; }
 .pl-tile-sub { font-size: .68rem; color: var(--muted, #8a9a90); padding: .1rem .5rem .5rem; line-height: 1.2; }
 @media (max-width: 991.98px) { .pl-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .sq-list-scroll { max-height: 420px; } }
 @media (max-width: 575.98px) { .pl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; } .pl-tile-name { font-size: .72rem; } .pl-tile-sub { display: none; } }
+.bulk-bar{padding:8px 12px;background:var(--card);border:1px solid var(--card-border);border-radius:12px}
+.pl-check{flex:0 0 auto;width:1.15rem;height:1.15rem;margin:0}
+.bulk-cb{cursor:pointer}

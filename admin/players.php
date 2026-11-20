@@ -55,6 +55,31 @@ if (is_post()) {
         flash_set('success', $merged ? $merged . ' duplicate profile' . ($merged === 1 ? '' : 's') . ' merged: matches, goals, teams and squad places moved to the one remaining profile.' : 'No duplicates found.');
         redirect('admin/' . $self);
     }
+    if ($op === 'bulk_players') {   // tick players, then delete them or put them into a team
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])))));
+        $do = post('do');
+        if (!$ids) { flash_set('info', 'Tick at least one player first.'); redirect('admin/' . $self); }
+        if ($do === 'team') {
+            $tid = (int)post('team_id');
+            if (!isset($teamOptions[$tid])) { flash_set('danger', 'Choose a team.'); redirect('admin/' . $self); }
+            $added = 0; $had = 0; $full = 0;
+            foreach ($ids as $pid) { $r = squad_add_player($pid, $tid); if ($r === 'added') { $added++; } elseif ($r === 'full') { $full++; } else { $had++; } }
+            flash_set('success', $added . ' player' . ($added === 1 ? '' : 's') . ' added to the squad of ' . $teamOptions[$tid] . ' and the team added to their profile' . ($had ? '; ' . $had . ' already in it' : '') . ($full ? '; ' . $full . ' not in the squad because it is full (' . SQUAD_MAX . ')' : '') . '.');
+        } elseif ($do === 'delete') {
+            $total = (int)db()->query('SELECT COUNT(*) FROM players')->fetchColumn(); $gone = 0;
+            foreach ($ids as $pid) {
+                $pl = get_player($pid);
+                if (!$pl || $total - $gone <= 1) { continue; }   // the last player always stays
+                db()->prepare('DELETE FROM players WHERE id = ?')->execute([$pid]);
+                delete_upload($pl['photo']);
+                if ((int)($_SESSION['admin_player_id'] ?? 0) === $pid) { unset($_SESSION['admin_player_id']); }
+                $gone++;
+            }
+            if (!db()->query('SELECT COUNT(*) FROM players WHERE is_featured = 1')->fetchColumn()) { set_featured(featured_player_id()); }
+            flash_set($gone ? 'success' : 'warning', $gone ? $gone . ' player' . ($gone === 1 ? '' : 's') . ' deleted together with their match records.' : 'Nothing deleted (the last player cannot be removed).');
+        }
+        redirect('admin/' . $self);
+    }
     if ($op === 'feature') {
         $pl = get_player((int)post('id'));
         if ($pl) { set_featured((int)$pl['id']); flash_set('success', $pl['full_name'] . ' is now shown on the homepage.'); }
@@ -237,10 +262,18 @@ if ($action === 'new' || $action === 'edit'):
 <?= player_filter_bar($f, true) ?>
 <div class="text-muted-ft small mb-2"><?= count($players) ?> player<?= count($players) === 1 ? '' : 's' ?><?= player_filter_active($f) ? ' found' : '' ?></div>
 <?php if (!$players): ?><div class="ft-card p-4 text-center text-muted-ft">No player matches these filters.</div><?php endif; ?>
+<?php if ($players): ?><form id="bulkForm" method="post" class="bulk-bar d-flex flex-wrap align-items-center gap-2 mb-2"><?= csrf_field() ?><input type="hidden" name="op" value="bulk_players">
+  <label class="form-check mb-0 d-flex align-items-center gap-2"><input class="form-check-input mt-0" type="checkbox" id="bulkAll"> <span class="small">Select all shown</span></label>
+  <span class="small text-muted-ft"><b id="bulkCount">0</b> selected</span>
+  <select class="form-select form-select-sm w-auto" name="team_id" aria-label="Team"><?= sel_opts($teamOptions, '', '- team -') ?></select>
+  <button class="btn btn-sm btn-outline-theme" name="do" value="team" id="bulkTeam" disabled><i class="bi bi-person-plus"></i> Add selected to team</button>
+  <button class="btn btn-sm btn-outline-danger" name="do" value="delete" id="bulkDel" disabled onclick="return confirm('Delete the ticked players and ALL their match records, goals, assists and trophies? This cannot be undone.')"><i class="bi bi-trash"></i> Delete selected</button></form>
+<?php endif; ?>
 <div class="pl-list">
 <?php foreach ($players as $p):
     $s = $p['stats']; ?>
   <div class="pl-row<?= $p['is_featured'] ? ' featured' : '' ?><?= (int)$p['id'] === $current ? ' managing' : '' ?>">
+    <input class="form-check-input bulk-cb pl-check" type="checkbox" name="ids[]" value="<?= (int)$p['id'] ?>" form="bulkForm" aria-label="Select <?= e($p['full_name']) ?>">
     <img class="pl-photo" src="<?= e(upload_url($p['photo'])) ?>" alt="">
     <div class="pl-main">
       <div class="pl-name"><?= e($p['full_name']) ?>
@@ -270,5 +303,6 @@ if ($action === 'new' || $action === 'edit'):
   </div>
 <?php endforeach; ?>
 </div>
+<?php if ($players) { echo str_replace('btn.disabled=!c;', 'btn.disabled=!c;var bt=document.getElementById("bulkTeam");if(bt){bt.disabled=!c}', bulk_select_script()); } ?>
 <?php endif;
 require ROOT_PATH . '/includes/admin_footer.php';

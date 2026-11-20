@@ -173,6 +173,26 @@ function crud_run(array $cfg): void
             }
             redirect('admin/' . $self);
         }
+        if ($op === 'bulk_delete') {   // tick rows, delete them in one go (only rows of this page's scope)
+            $ok = 0; $bad = 0;
+            foreach (array_unique(array_map('intval', (array)($_POST['ids'] ?? []))) as $bid) {
+                $row = $bid > 0 ? $load($bid) : null;
+                if (!$row) { continue; }
+                if (!empty($cfg['scope'])) {
+                    $in = db()->prepare("SELECT COUNT(*) FROM `$table` t WHERE t.id = ? AND (" . $cfg['scope']() . ')'); $in->execute([$bid]);
+                    if (!(int)$in->fetchColumn()) { continue; }
+                }
+                try {
+                    db()->prepare("DELETE FROM `$table` WHERE id = ?")->execute([$bid]);
+                    foreach ($fields as $f) { if (($f['type'] ?? '') === 'image') { delete_upload($row[$f['name']] ?? null); } }
+                    $ok++;
+                } catch (PDOException $ex) { $bad++; }
+            }
+            if ($ok) { flash_set('success', $ok . ' ' . strtolower($ok === 1 ? $cfg['singular'] : ($cfg['plural'] ?? $cfg['singular'] . 's')) . ' deleted.'); }
+            if ($bad) { flash_set('danger', $bad . ' could not be deleted because they are used by other records (for example matches).'); }
+            if (!$ok && !$bad) { flash_set('info', 'Nothing was selected.'); }
+            redirect('admin/' . $self);
+        }
         if ($op === 'save') {
             $existing = ((int)post('id')) ? $load((int)post('id')) : null;
             [$data, $errors, $uploaded] = crud_collect($fields, $existing ?? []);
@@ -259,12 +279,20 @@ function crud_run(array $cfg): void
             echo '<form class="row g-2 mb-3" method="get"><div class="col-sm-6 col-md-4"><input class="form-control" name="q" value="' . e($q) . '" placeholder="Search..."></div>'
                . '<div class="col-auto"><button class="btn btn-outline-theme"><i class="bi bi-search"></i></button></div></form>';
         }
+        $bulk = $rows && empty($cfg['no_bulk']);
+        if ($bulk) {   // selection bar: the row checkboxes belong to this form through their form="" attribute
+            echo '<form id="bulkForm" method="post" class="bulk-bar d-flex flex-wrap align-items-center gap-2 mb-2" data-confirm="Delete the ticked ' . e(strtolower($cfg['plural'] ?? $cfg['singular'] . 's')) . '? This cannot be undone.">' . csrf_field() . '<input type="hidden" name="op" value="bulk_delete">'
+               . '<label class="form-check mb-0 d-flex align-items-center gap-2"><input class="form-check-input mt-0" type="checkbox" id="bulkAll"> <span class="small">Select all on this page</span></label>'
+               . '<span class="small text-muted-ft"><b id="bulkCount">0</b> selected</span>'
+               . '<button class="btn btn-sm btn-outline-danger" id="bulkDel" disabled><i class="bi bi-trash"></i> Delete selected</button></form>';
+        }
         echo '<div class="ft-card p-0"><div class="table-responsive"><table class="table ft-table table-hover align-middle mb-0"><thead><tr>';
+        if ($bulk) { echo '<th style="width:1%"></th>'; }
         foreach ($cfg['columns'] as $c) { echo '<th>' . e($c['label']) . '</th>'; }
         echo '<th class="text-end">Actions</th></tr></thead><tbody>';
         if (!$rows) { echo '<tr><td colspan="' . (count($cfg['columns']) + 1) . '" class="text-center text-muted-ft py-4">Nothing here yet.</td></tr>'; }
         foreach ($rows as $r) {
-            echo '<tr>';
+            echo '<tr>' . ($bulk ? '<td><input class="form-check-input bulk-cb" type="checkbox" name="ids[]" value="' . (int)$r['id'] . '" form="bulkForm" aria-label="Select"></td>' : '');
             foreach ($cfg['columns'] as $c) {
                 $v = is_callable($c['key']) ? $c['key']($r) : ($r[$c['key']] ?? '');
                 echo '<td class="' . e($c['class'] ?? '') . '">' . (!empty($c['html']) ? $v : e($v)) . '</td>';
@@ -275,6 +303,7 @@ function crud_run(array $cfg): void
                . '<button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>';
         }
         echo '</tbody></table></div></div>';
+        if ($bulk) { echo bulk_select_script(); }
         echo pagination($total, $per, $page, $self . '?' . http_build_query(array_filter(['q' => $q])));
     }
     $extraScripts = $cfg['scripts'] ?? '';
@@ -296,4 +325,15 @@ function pagination(int $total, int $per, int $page, string $base): string
         elseif (abs($p - $page) === 3) { $h .= '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>'; }
     }
     return $h . $link(min($pages, $page + 1), '&raquo;', false, $page >= $pages) . '</ul></nav>';
+}
+
+
+/** Small script for the tick boxes of a list: select all, counter, enables the delete button. */
+function bulk_select_script(): string
+{
+    return '<script>(function(){var all=document.getElementById("bulkAll"),btn=document.getElementById("bulkDel"),n=document.getElementById("bulkCount");'
+        . 'function cbs(){return [].slice.call(document.querySelectorAll(".bulk-cb"))}'
+        . 'function upd(){var c=cbs().filter(function(x){return x.checked}).length;n.textContent=c;btn.disabled=!c;all.checked=c>0&&c===cbs().length;all.indeterminate=c>0&&c<cbs().length}'
+        . 'all.addEventListener("change",function(){cbs().forEach(function(x){x.checked=all.checked});upd()});'
+        . 'cbs().forEach(function(x){x.addEventListener("change",upd)});upd();})();</script>';
 }

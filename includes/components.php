@@ -92,13 +92,16 @@ function render_match_table(array $rows, array $f, string $base, bool $adminMode
 {
     if (!$rows) { return '<div class="ft-card p-4 text-center text-muted-ft">No matches found.</div>'; }
     $detail = fn($m) => $adminMode ? purl('match-details.php?id=' . $m['id']) : purl('match-details.php?id=' . $m['id']);
-    $h = '<div class="ft-card p-0"><div class="table-responsive"><table class="table ft-table table-hover align-middle mb-0"><thead><tr>'
+    $h = $adminMode ? '<form id="bulkForm" method="post" action="' . e(url('admin/match-delete.php')) . '" class="bulk-bar d-flex flex-wrap align-items-center gap-2 mb-2" data-confirm="Delete the ticked matches with their squad, goals and assists?">' . csrf_field()
+       . '<label class="form-check mb-0 d-flex align-items-center gap-2"><input class="form-check-input mt-0" type="checkbox" id="bulkAll"> <span class="small">Select all on this page</span></label>'
+       . '<span class="small text-muted-ft"><b id="bulkCount">0</b> selected</span><button class="btn btn-sm btn-outline-danger" id="bulkDel" disabled><i class="bi bi-trash"></i> Delete selected</button></form>' : '';
+    $h .= '<div class="ft-card p-0"><div class="table-responsive"><table class="table ft-table table-hover align-middle mb-0"><thead><tr>' . ($adminMode ? '<th style="width:1%"></th>' : '')
        . sort_th('Date', 'date', $f, $base) . sort_th('Competition', 'competition', $f, $base) . sort_th('Team', 'team', $f, $base)
        . sort_th('Opponent', 'opponent', $f, $base) . '<th>Score</th>' . sort_th('Result', 'result', $f, $base) . '<th>Pos</th>'
        . sort_th('Min', 'minutes', $f, $base, 'text-end') . sort_th('G', 'goals', $f, $base, 'text-end') . sort_th('A', 'assists', $f, $base, 'text-end')
        . sort_th('Rating', 'rating', $f, $base, 'text-end') . '<th class="text-end"></th></tr></thead><tbody>';
     foreach ($rows as $m) {
-        $h .= '<tr><td class="text-nowrap">' . e(fmt_date($m['match_date'])) . '</td><td>' . e($m['competition_name'] ?? $m['match_type']) . '</td><td>' . e($m['team_name'])
+        $h .= '<tr>' . ($adminMode ? '<td><input class="form-check-input bulk-cb" type="checkbox" name="ids[]" value="' . (int)$m['id'] . '" form="bulkForm" aria-label="Select"></td>' : '') . '<td class="text-nowrap">' . e(fmt_date($m['match_date'])) . '</td><td>' . e($m['competition_name'] ?? $m['match_type']) . '</td><td>' . e($m['team_name'])
             . '</td><td>' . e($m['opponent_name']) . '</td><td class="fw-bold text-nowrap">' . (int)$m['team_score'] . ' - ' . (int)$m['opponent_score'] . '</td><td>' . result_badge($m['result'])
             . '</td><td>' . e($m['position'] ?? '-') . '</td><td class="text-end">' . (int)$m['minutes_played'] . '</td><td class="text-end">' . (int)$m['goals'] . '</td><td class="text-end">' . (int)$m['assists']
             . '</td><td class="text-end">' . e($m['rating'] !== null ? fmt_num($m['rating']) : '-') . ($m['is_motm'] ? ' <i class="bi bi-trophy-fill text-warning" title="Man of the Match"></i>' : '') . '</td>'
@@ -110,7 +113,7 @@ function render_match_table(array $rows, array $f, string $base, bool $adminMode
         }
         $h .= '</td></tr>';
     }
-    return $h . '</tbody></table></div></div>';
+    return $h . '</tbody></table></div></div>' . ($adminMode ? bulk_select_script() : '');
 }
 
 /** Card for a match (used in home page / lists on small screens). */
