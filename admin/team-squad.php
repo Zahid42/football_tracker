@@ -27,6 +27,27 @@ if ($sqTid && is_post() && post('op') === 'make_profiles') {
     redirect('admin/team-squad.php');
 }
 
+/** Squad selection: the admin ticks who is in this team's squad from the overall player list. Nobody is copied: squad places point at the existing player profiles. */
+if ($sqTid && is_post() && post('op') === 'squad_select') {
+    csrf_require();
+    $all = db()->query("SELECT id FROM players WHERE approval_status = 'approved'")->fetchAll(PDO::FETCH_COLUMN);
+    $want = array_flip(array_map('intval', (array)($_POST['pick'] ?? [])));
+    $inSq = db()->query('SELECT player_id FROM team_squad WHERE team_id = ' . $sqTid . ' AND player_id IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN);
+    $inSq = array_flip(array_map('intval', $inSq));
+    $removed = 0; $added = 0; $full = 0; $noNum = false;
+    $del = db()->prepare('DELETE FROM team_squad WHERE team_id = ? AND player_id = ?');
+    foreach ($all as $pid) { $pid = (int)$pid; if (isset($inSq[$pid]) && !isset($want[$pid])) { $del->execute([$sqTid, $pid]); $removed++; } }   // unticked: leave the squad (profile and team history stay)
+    foreach ($all as $pid) {
+        $pid = (int)$pid;
+        if (isset($want[$pid]) && !isset($inSq[$pid])) { $r = squad_add_player($pid, $sqTid, $noNum); if ($r === 'added') { $added++; } elseif ($r === 'full') { $full++; } }
+    }
+    $msg = 'Squad updated: ' . $added . ' added, ' . $removed . ' removed.';
+    if ($full) { $msg .= ' ' . $full . ' not added because the squad is full (' . SQUAD_MAX . ').'; }
+    if ($noNum) { $msg .= ' A shirt number that was already taken was left empty.'; }
+    flash_set($added || $removed ? 'success' : 'info', $msg);
+    redirect('admin/team-squad.php');
+}
+
 team_admin_page('team-squad.php', [
     'before_list' => function () use ($sqTid) {
         $size = team_pitch_size($sqTid);
@@ -41,6 +62,32 @@ team_admin_page('team-squad.php', [
            . '<select class="form-select w-auto" id="pitchSize" name="pitch_size">';
         foreach (PITCH_SIZES as $n) { echo '<option value="' . $n . '"' . ($n === $size ? ' selected' : '') . '>' . $n . ' (' . $n . '-a-side)</option>'; }
         echo '</select><button class="btn btn-outline-theme btn-sm">Save</button><span class="small text-muted-ft">Used for the team pitch view and the Starting XI limit.</span></form>';
+        $st = db()->prepare("SELECT p.id, p.full_name, p.nickname, p.preferred_position, p.jersey_number, p.public_code, t.name AS team_name,
+                (p.current_team_id = :t1 OR EXISTS (SELECT 1 FROM player_teams x WHERE x.player_id = p.id AND x.team_id = :t2)) AS in_team,
+                EXISTS (SELECT 1 FROM team_squad q WHERE q.team_id = :t3 AND q.player_id = p.id) AS in_squad
+            FROM players p LEFT JOIN teams t ON t.id = p.current_team_id WHERE p.approval_status = 'approved' ORDER BY in_team DESC, p.full_name");
+        $st->execute([':t1' => $sqTid, ':t2' => $sqTid, ':t3' => $sqTid]); $plist = $st->fetchAll();
+        $cnt = 0; $nTeam = 0; foreach ($plist as $p) { $cnt += (int)$p['in_squad']; $nTeam += (int)$p['in_team']; }
+        echo '<form method="post" class="ft-card p-3 mb-3">' . csrf_field() . '<input type="hidden" name="op" value="squad_select">'
+           . '<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><h2 class="h6 mb-0"><i class="bi bi-person-check"></i> Who is in the squad</h2>'
+           . '<span class="small text-muted-ft">Tick the players of this team who belong to the squad (' . SQUAD_MAX . ' at most). Nobody is copied: the squad uses the existing player profiles.</span></div>';
+        if (!$plist) { echo '<p class="text-muted-ft mb-0">There are no players yet.</p></form>'; }
+        else {
+            echo '<div class="d-flex flex-wrap gap-2 align-items-center mb-2"><input class="form-control w-auto flex-grow-1" type="search" id="sqFind" placeholder="Search by name, position or ID..." autocomplete="off">'
+               . '<select class="form-select w-auto" id="sqScope"><option value="team">This team\'s players (' . $nTeam . ')</option><option value="all">All players (' . count($plist) . ')</option></select>'
+               . '<span class="small text-muted-ft">In squad: <b id="sqCount">' . $cnt . '</b>/' . SQUAD_MAX . '</span></div><div class="sq-pick-list">';
+            foreach ($plist as $p) {
+                $hay = mb_strtolower($p['full_name'] . ' ' . $p['nickname'] . ' ' . $p['preferred_position'] . ' ' . position_name($p['preferred_position']) . ' ' . $p['public_code'] . ' ' . $p['team_name']);
+                echo '<label class="sq-pick" data-hay="' . e($hay) . '" data-team="' . (int)$p['in_team'] . '"><input class="form-check-input" type="checkbox" name="pick[]" value="' . (int)$p['id'] . '"' . ($p['in_squad'] ? ' checked' : '') . '> <span class="fw-semibold">' . e($p['full_name']) . '</span>'
+                   . ' <span class="small text-muted-ft">' . e($p['preferred_position'] ? position_name($p['preferred_position']) : 'no position') . ($p['jersey_number'] !== null ? ' &middot; #' . (int)$p['jersey_number'] : '')
+                   . (!$p['in_team'] ? ' &middot; other team' : '') . ($p['team_name'] && !$p['in_team'] ? ' (' . e($p['team_name']) . ')' : '') . '</span></label>';
+            }
+            echo '</div><div class="mt-3"><button class="btn btn-accent"><i class="bi bi-check-lg"></i> Save squad</button></div>'
+               . '<script>(function(){var f=document.getElementById("sqFind"),sc=document.getElementById("sqScope"),rows=[].slice.call(document.querySelectorAll(".sq-pick")),c=document.getElementById("sqCount");'
+               . 'function cnt(){c.textContent=document.querySelectorAll(".sq-pick input:checked").length}'
+               . 'function flt(){var q=f.value.toLowerCase().trim(),all=sc.value==="all";rows.forEach(function(r){r.hidden=(!all&&!q&&r.dataset.team!=="1")||(q&&r.dataset.hay.indexOf(q)<0)})}'
+               . 'f.addEventListener("input",flt);sc.addEventListener("change",flt);rows.forEach(function(r){r.querySelector("input").addEventListener("change",cnt)});flt();})();</script></form>';
+        }
     },
     'table' => 'team_squad', 'title' => 'Current Squad', 'singular' => 'Squad Player', 'icon' => 'bi-people',
     'intro' => 'Up to ' . SQUAD_MAX . ' players per team. Set how many players are allowed on the pitch, then tick "Starting XI" for that many: they stand on the pitch by position (if none are ticked, the pitch is picked automatically).',
