@@ -238,3 +238,54 @@ function team_pitch(array $squad, int $size = 11): string
     }
     return $h . '</div>';
 }
+
+
+/**
+ * Profile players who played for this team, season by season and tournament by tournament (from the match line-ups).
+ * Returns [ ['season' => name, 'comps' => [ ['name' => tournament, 'players' => [...]] ]] ], newest season first.
+ */
+function team_players_by_season(int $teamId): array
+{
+    $st = db()->prepare("SELECT m.season_id, m.competition_id, s.name AS season, s.start_date, c.name AS comp, p.id, p.full_name, p.photo, p.preferred_position, p.jersey_number, p.public_code, COUNT(DISTINCT m.id) AS apps
+        FROM matches m JOIN match_squad ms ON ms.match_id = m.id AND ms.player_id IS NOT NULL
+        JOIN players p ON p.id = ms.player_id AND p.approval_status = 'approved'
+        LEFT JOIN seasons s ON s.id = m.season_id LEFT JOIN competitions c ON c.id = m.competition_id
+        WHERE m.team_id = ? GROUP BY m.season_id, m.competition_id, p.id, s.name, s.start_date, c.name, p.full_name, p.photo, p.preferred_position, p.jersey_number, p.public_code");
+    $st->execute([$teamId]);
+    $seasons = [];
+    foreach ($st->fetchAll() as $r) {
+        $sk = (int)$r['season_id']; $ck = (int)$r['competition_id'];
+        $seasons[$sk]['season'] = $r['season'] !== null ? $r['season'] : 'No season';
+        $seasons[$sk]['sort'] = $r['start_date'] ?? '0000-00-00';
+        $seasons[$sk]['comps'][$ck]['name'] = $r['comp'] !== null ? $r['comp'] : 'Friendlies & other matches';
+        $seasons[$sk]['comps'][$ck]['players'][] = $r;
+    }
+    uasort($seasons, fn($a, $b) => strcmp($b['sort'], $a['sort']));
+    $order = array_flip(POSITIONS);
+    foreach ($seasons as &$se) {
+        uasort($se['comps'], fn($a, $b) => [$a['name'] === 'Friendlies & other matches', $a['name']] <=> [$b['name'] === 'Friendlies & other matches', $b['name']]);
+        foreach ($se['comps'] as &$co) { usort($co['players'], fn($a, $b) => [$order[$a['preferred_position']] ?? 99, $a['full_name']] <=> [$order[$b['preferred_position']] ?? 99, $b['full_name']]); }
+        unset($co);
+    }
+    unset($se);
+    return array_values($seasons);
+}
+
+/** A block of player tiles in a 6-column grid (6 x 6 = 36 shown, the rest behind a button). */
+function player_tile_grid(array $players, ?string $uid = null): string
+{
+    $uid = $uid ?: bin2hex(random_bytes(3));
+    $h = '<div class="pl-grid" id="g' . $uid . '">';
+    foreach ($players as $i => $p) {
+        $pos = $p['preferred_position'] ?? null;
+        $h .= '<a class="pl-tile' . ($i >= 36 ? ' pl-extra' : '') . '"' . ($i >= 36 ? ' hidden' : '') . ' href="' . e(player_url_by_id((int)$p['id'])) . '">'
+            . '<span class="pl-tile-img"><img src="' . e(upload_url($p['photo'] ?? null)) . '" alt="" loading="lazy">' . (!empty($p['jersey_number']) ? '<span class="pl-tile-no">#' . (int)$p['jersey_number'] . '</span>' : '') . ($pos ? '<span class="pl-tile-pos">' . e($pos) . '</span>' : '') . '</span>'
+            . '<span class="pl-tile-name">' . e($p['full_name']) . '</span>'
+            . '<span class="pl-tile-sub">' . e($pos ? position_name($pos) : 'Player') . (isset($p['apps']) ? ' &middot; ' . (int)$p['apps'] . ' match' . ((int)$p['apps'] === 1 ? '' : 'es') : '') . '</span></a>';
+    }
+    $h .= '</div>';
+    if (count($players) > 36) {
+        $h .= '<button class="btn btn-outline-theme btn-sm mt-2" type="button" onclick="document.querySelectorAll(\'#g' . $uid . ' .pl-extra\').forEach(function(x){x.hidden=false});this.remove()">Show all ' . count($players) . ' players</button>';
+    }
+    return $h;
+}

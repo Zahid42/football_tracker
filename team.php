@@ -30,16 +30,17 @@ $m->execute([$t['id']]); $ms = $m->fetchAll();
 
   <div class="section-head" id="squad"><h2>Current Squad</h2><span class="text-muted-ft"><?= count($squad) ?> / <?= SQUAD_MAX ?> players</span></div>
   <?php if (!$squad): ?><p class="text-muted-ft mb-4">The squad has not been announced yet.</p><?php else: ?>
-  <div class="sw-tabs mb-3" role="tablist"><button class="sw-tab active" type="button" data-sqv="pitch"><i class="bi bi-diagram-3"></i> Pitch view</button><button class="sw-tab" type="button" data-sqv="list"><i class="bi bi-list-ul"></i> List view</button></div>
-  <div id="sqv-pitch" class="mb-4"><?php try { echo team_pitch($squad, isset($_GET['pitch']) && in_array((int)$_GET['pitch'], PITCH_SIZES, true) ? (int)$_GET['pitch'] : team_pitch_size((int)$t['id'])); } catch (Throwable $e) { echo '<p class="text-muted-ft">The pitch view could not be drawn. Use the list view.</p>'; } ?></div>
-  <div class="row-list mb-4" id="sqv-list" hidden><?php foreach ($squad as $s): ?>
-    <<?= $s['public_code'] ? 'a href="' . e(url($s['public_code'])) . '"' : 'div' ?> class="row-item squad-member">
-      <span class="sq-no"><?= $s['shirt_number'] !== null ? (int)$s['shirt_number'] : '-' ?></span>
-      <img class="sq-photo" src="<?= e(upload_url($s['photo'])) ?>" alt="">
-      <span class="ri-main"><b><?= e($s['name']) ?><?= $s['is_captain'] ? ' <span class="badge bg-warning text-dark">C</span>' : '' ?></b><small><?= e(position_name($s['position'])) ?><?= $s['notes'] ? ' &middot; ' . e($s['notes']) : '' ?></small></span>
-      <?= $s['public_code'] ? '<span class="ri-pill k-event">Profile</span>' : '' ?>
-    </<?= $s['public_code'] ? 'a' : 'div' ?>><?php endforeach; ?></div><?php endif; ?>
-  <script>document.querySelectorAll('[data-sqv]').forEach(function(b){b.addEventListener('click',function(){var v=b.dataset.sqv;document.querySelectorAll('[data-sqv]').forEach(function(x){x.classList.toggle('active',x===b)});var p=document.getElementById('sqv-pitch'),l=document.getElementById('sqv-list');if(p)p.hidden=v!=='pitch';if(l)l.hidden=v!=='list';});});</script>
+  <div class="row g-3 mb-4 align-items-start">
+    <div class="col-lg-8" id="sqv-pitch"><div class="small fw-semibold text-muted-ft mb-2"><i class="bi bi-diagram-3"></i> Pitch view</div><?php try { echo team_pitch($squad, isset($_GET['pitch']) && in_array((int)$_GET['pitch'], PITCH_SIZES, true) ? (int)$_GET['pitch'] : team_pitch_size((int)$t['id'])); } catch (Throwable $e) { echo '<p class="text-muted-ft">The pitch view could not be drawn.</p>'; } ?></div>
+    <div class="col-lg-4" id="sqv-list"><div class="small fw-semibold text-muted-ft mb-2"><i class="bi bi-list-ul"></i> List view</div>
+      <div class="row-list sq-list-scroll"><?php foreach ($squad as $s): ?>
+        <<?= $s['public_code'] ? 'a href="' . e(url($s['public_code'])) . '"' : 'div' ?> class="row-item squad-member">
+          <span class="sq-no"><?= $s['shirt_number'] !== null ? (int)$s['shirt_number'] : '-' ?></span>
+          <img class="sq-photo" src="<?= e(upload_url($s['photo'])) ?>" alt="">
+          <span class="ri-main"><b><?= e($s['name']) ?><?= $s['is_captain'] ? ' <span class="badge bg-warning text-dark">C</span>' : '' ?></b><small><?= e(position_name($s['position'])) ?><?= $s['notes'] ? ' &middot; ' . e($s['notes']) : '' ?></small></span>
+          <?= $s['public_code'] ? '<span class="ri-pill k-event">Profile</span>' : '' ?>
+        </<?= $s['public_code'] ? 'a' : 'div' ?>><?php endforeach; ?></div></div>
+  </div><?php endif; ?>
 
   <div class="section-head" id="records"><h2>Previous Records</h2></div>
   <?php if (!$records): ?><p class="text-muted-ft mb-4">No records added yet.</p><?php else: ?>
@@ -67,9 +68,21 @@ $m->execute([$t['id']]); $ms = $m->fetchAll();
   <div class="row g-3 mb-4"><?php foreach ($archive as $k): ?><div class="col-6 col-md-3 col-xl-2"><div class="kit-card"><div class="kit-vis"><?= kit_visual($k) ?></div>
     <div class="fw-bold"><?= e((string)($k['season'] ?: '-')) ?></div><div class="small text-muted-ft"><?= e($k['kit_type']) ?><?= $k['label'] ? ' &middot; ' . e($k['label']) : '' ?></div></div></div><?php endforeach; ?></div><?php endif; ?>
 
-  <div class="section-head" id="players"><h2>Players on this site</h2></div>
-  <div class="row g-3 mb-4"><?php foreach ($roster as $pl): ?><div class="col-6 col-md-4 col-xl-3"><?= player_card($pl, with_player((int)$pl['id'], fn() => get_overall_stats())) ?></div><?php endforeach; ?>
-  <?php if (!$roster): ?><p class="text-muted-ft">No registered players for this team yet.</p><?php endif; ?></div>
+  <div class="section-head" id="players"><h2>Players on this site</h2><span class="text-muted-ft"><?= count($roster) ?> registered</span></div>
+  <?php $bySeason = team_players_by_season((int)$t['id']); ?>
+  <?php if (!$roster && !$bySeason): ?><p class="text-muted-ft mb-4">No registered players for this team yet.</p><?php endif; ?>
+  <?php if ($roster): ?>
+    <div class="pl-block"><h3 class="pl-block-title"><i class="bi bi-people"></i> All registered players <span class="badge text-bg-secondary align-middle"><?= count($roster) ?></span></h3>
+      <?= player_tile_grid($roster) ?></div>
+  <?php endif; ?>
+  <?php foreach ($bySeason as $se): ?>
+    <div class="pl-season"><h3 class="pl-season-title"><i class="bi bi-calendar3"></i> <?= e($se['season']) ?></h3>
+    <?php foreach ($se['comps'] as $co): ?>
+      <div class="pl-block"><h4 class="pl-block-title"><i class="bi bi-trophy"></i> <?= e($co['name']) ?> <span class="badge text-bg-secondary align-middle"><?= count($co['players']) ?></span></h4>
+        <?= player_tile_grid($co['players']) ?></div>
+    <?php endforeach; ?></div>
+  <?php endforeach; ?>
+  <div class="mb-4"></div>
 
   <div class="section-head"><h2>Recent matches</h2></div>
   <div class="ft-card p-0"><div class="table-responsive"><table class="table ft-table mb-0"><tbody>

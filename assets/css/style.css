@@ -812,3 +812,22 @@ body.public-body > main { padding-top: 1.5rem; }
 body.public-body > main.is-home { display: flex; flex-direction: column; padding-top: 0; }
 main.is-home > .home-search { flex: 1 1 auto; justify-content: center; min-height: 0; padding-top: 1.5rem; padding-bottom: 1.5rem; }
 main.is-home + .ft-footer { margin-top: 0 !important; }
+
+/* team page: squad list beside the pitch, and the season / tournament player grids (6 columns x 6 rows) */
+.sq-list-scroll { max-height: 560px; overflow-y: auto; padding-right: 2px; }
+.pl-season { margin: 1.4rem 0 .4rem; }
+.pl-season-title { font-size: 1.05rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); padding-bottom: .35rem; margin-bottom: .6rem; border-bottom: 1px solid var(--card-border); }
+.pl-block { margin-bottom: 1.1rem; }
+.pl-block-title { font-size: .95rem; font-weight: 700; margin: 0 0 .55rem; }
+.pl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .6rem; }
+.pl-tile { display: flex; flex-direction: column; text-decoration: none; color: inherit; background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; transition: transform .15s, border-color .15s; }
+.pl-tile:hover { transform: translateY(-2px); border-color: var(--accent); color: inherit; }
+.pl-tile[hidden] { display: none; }
+.pl-tile-img { position: relative; display: block; aspect-ratio: 4 / 5; background: rgba(127,127,127,.12); }
+.pl-tile-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pl-tile-no, .pl-tile-pos { position: absolute; top: 6px; font-size: .68rem; font-weight: 800; padding: .08rem .4rem; border-radius: 6px; background: rgba(0,0,0,.65); color: #fff; }
+.pl-tile-no { left: 6px; } .pl-tile-pos { right: 6px; background: var(--accent); color: #04130a; }
+.pl-tile-name { font-weight: 700; font-size: .82rem; line-height: 1.15; padding: .45rem .5rem 0; overflow-wrap: anywhere; }
+.pl-tile-sub { font-size: .68rem; color: var(--muted, #8a9a90); padding: .1rem .5rem .5rem; line-height: 1.2; }
+@media (max-width: 991.98px) { .pl-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .sq-list-scroll { max-height: 420px; } }
+@media (max-width: 575.98px) { .pl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; } .pl-tile-name { font-size: .72rem; } .pl-tile-sub { display: none; } }
