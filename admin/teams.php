@@ -17,6 +17,23 @@ if (is_post() && post('op') === 'delete') {
     }
     redirect('admin/teams.php');
 }
+/** Teams listed here: the managed player's teams, teams nobody uses yet, and every team that takes part in a competition. */
+$teamScope = function () use ($pid): string {
+    $sql = '(t.id IN (SELECT team_id FROM player_teams WHERE player_id = ' . $pid . ') OR t.id IN (SELECT m.team_id FROM matches m JOIN match_statistics s ON s.match_id = m.id WHERE s.player_id = ' . $pid . ')'
+        . ' OR (NOT EXISTS (SELECT 1 FROM player_teams x WHERE x.team_id = t.id) AND NOT EXISTS (SELECT 1 FROM matches y WHERE y.team_id = t.id)))';
+    if (db()->query("SHOW TABLES LIKE 'comp_teams'")->fetch()) { $sql = '(' . $sql . ') OR LOWER(t.name) IN (SELECT LOWER(team_name) FROM comp_teams)'; }
+    return $sql;
+};
+if (is_post() && post('op') === 'bulk_delete') {   // tick teams: take them off this player's profile (a team nobody uses any more is deleted)
+    csrf_require();
+    $gone = 0; $removed = 0;
+    foreach (array_unique(array_map('intval', (array)($_POST['ids'] ?? []))) as $tid) {
+        $in = db()->prepare('SELECT COUNT(*) FROM teams t WHERE t.id = ? AND (' . $teamScope() . ')'); $in->execute([$tid]);
+        if ($tid > 0 && (int)$in->fetchColumn()) { $r = player_remove_team($pid, $tid); $gone++; if ($r['team_deleted']) { $removed++; } }
+    }
+    flash_set($gone ? 'success' : 'info', $gone ? $gone . ' team' . ($gone === 1 ? '' : 's') . ' removed from ' . ($pl['full_name'] ?? 'this player') . "'s profile" . ($removed ? '; ' . $removed . ' used by nobody else and deleted completely' : '') . '.' : 'Nothing was selected.');
+    redirect('admin/teams.php');
+}
 crud_run([
     'save_override' => function (array $data, ?array $existing) use ($pid, $pl) {
         $who = $pl['full_name'] ?? 'this player';
@@ -33,10 +50,9 @@ crud_run([
     },
     'force_delete' => true,
     'delete_confirm' => 'Remove this team from ' . ($pl['full_name'] ?? 'this player') . "'s profile? Only THEIR matches, goals, assists and stats for this team are removed. Other players who share the team are not affected.",
-    'scope' => fn() => '(t.id IN (SELECT team_id FROM player_teams WHERE player_id = ' . $pid . ') OR t.id IN (SELECT m.team_id FROM matches m JOIN match_statistics s ON s.match_id = m.id WHERE s.player_id = ' . $pid . ')'
-        . ' OR (NOT EXISTS (SELECT 1 FROM player_teams x WHERE x.team_id = t.id) AND NOT EXISTS (SELECT 1 FROM matches y WHERE y.team_id = t.id)))',
+    'scope' => $teamScope,
     'table' => 'teams', 'title' => 'Teams', 'singular' => 'Team', 'icon' => 'bi-shield',
-    'intro' => 'Teams of the player you are managing. Removing a team here only affects this player; other players who share the team keep theirs. New teams are created on their own and are not attached to the player you are managing; assign a team to a player on the Players page.',
+    'intro' => 'Teams of the player you are managing and every team that plays in a competition. Removing a team here only affects this player; other players who share the team keep theirs. New teams are created on their own and are not attached to the player you are managing; assign a team to a player on the Players page.',
     'search' => ['t.name', 't.short_name'], 'order' => 't.name',
     'fields' => [
         ['name' => 'name', 'label' => 'Team Name', 'required' => true, 'max' => 100],
