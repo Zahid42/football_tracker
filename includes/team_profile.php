@@ -189,6 +189,7 @@ function ft_squad_ensure(): void
     $pdo = db();
     ft_pitch_size_ensure();
     ft_squad_profile_backfill();
+    ft_comp_teams_backfill();
     $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'squad_starter_v'")->fetchColumn();
     if ($v === '1') { return; }
     if ($pdo->query("SHOW TABLES LIKE 'team_squad'")->fetch() && !$pdo->query("SHOW COLUMNS FROM team_squad LIKE 'is_starter'")->fetch()) {

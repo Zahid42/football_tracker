@@ -25,6 +25,7 @@ comp_admin_page('comp-teams.php', [
         ['label' => 'Pts adj.', 'key' => fn($r) => (int)$r['point_adjust'] ? ((int)$r['point_adjust'] > 0 ? '+' : '') . (int)$r['point_adjust'] : '-'],
         ['label' => 'Reason', 'key' => fn($r) => $r['adjust_reason'] ?? '-'],
     ],
+    'after_save' => function (int $id, array $d, bool $isNew) { comp_team_to_list((string)($d['team_name'] ?? '')); },
     'before_save' => function (array &$d, ?array $ex) use ($comp, $isGroups) {
         $cid = (int)$comp['id']; $id = (int)($ex['id'] ?? 0);
         $d['point_adjust'] = (int)($d['point_adjust'] ?? 0);

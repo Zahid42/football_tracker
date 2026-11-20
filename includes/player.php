@@ -502,3 +502,26 @@ function squad_add_player(int $pid, int $tid, ?bool &$numberTaken = null): strin
         ->execute([$tid, $shirt, $p['full_name'], $p['preferred_position'], $p['photo'], $pid, $starter]);
     return 'added';
 }
+
+/** Make sure a team name used in a competition exists in the overall team list (teams table). Returns true when a team was created. */
+function comp_team_to_list(string $name): bool
+{
+    $name = trim($name);
+    if ($name === '') { return false; }
+    $pdo = db();
+    $c = $pdo->prepare('SELECT COUNT(*) FROM teams WHERE LOWER(name) = LOWER(?)'); $c->execute([$name]);
+    if ((int)$c->fetchColumn()) { return false; }
+    $pdo->prepare("INSERT INTO teams (name, status, public_code) VALUES (?, 'active', ?)")->execute([$name, ft_new_code()]);
+    return true;
+}
+
+/** One-time: every team already in a competition joins the team list; later additions go through comp_team_to_list(). */
+function ft_comp_teams_backfill(): void
+{
+    $pdo = db();
+    if ($pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'comp_team_list_v'")->fetchColumn() === '1') { return; }
+    if ($pdo->query("SHOW TABLES LIKE 'comp_teams'")->fetch()) {
+        foreach ($pdo->query('SELECT DISTINCT team_name FROM comp_teams')->fetchAll(PDO::FETCH_COLUMN) as $n) { comp_team_to_list((string)$n); }
+    }
+    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['comp_team_list_v', '1']);
+}
