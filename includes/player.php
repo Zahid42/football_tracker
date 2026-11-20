@@ -315,13 +315,19 @@ function player_filter_input(): array
     return [
         'q'      => trim((string)($_GET['q'] ?? '')),
         'team'   => max(0, (int)($_GET['team'] ?? 0)),
+        'comp'   => max(0, (int)($_GET['comp'] ?? 0)),
+        'cat'    => isset(POSITION_GROUPS[(string)($_GET['cat'] ?? '')]) ? (string)$_GET['cat'] : '',
+        'foot'   => in_array((string)($_GET['foot'] ?? ''), ['Right', 'Left', 'Both'], true) ? (string)$_GET['foot'] : '',
         'pos'    => in_array($pos, POSITIONS, true) ? $pos : '',
         'sort'   => in_array($sort, ['name', 'rating', 'goals', 'assists', 'matches', 'number'], true) ? $sort : '',
         'status' => in_array($status, ['active', 'archived', 'featured'], true) ? $status : '',
     ];
 }
 
-function player_filter_active(array $f): bool { return $f['q'] !== '' || $f['team'] || $f['pos'] !== '' || $f['sort'] !== '' || $f['status'] !== ''; }
+/** Position groups for the "category" filter. */
+const POSITION_GROUPS = ['Goalkeeper' => ['GK'], 'Defender' => ['CB', 'LB', 'RB'], 'Midfielder' => ['CDM', 'CM', 'CAM', 'LM', 'RM'], 'Forward' => ['LW', 'RW', 'ST', 'CF']];
+
+function player_filter_active(array $f): bool { return $f['q'] !== '' || $f['team'] || $f['comp'] || $f['cat'] !== '' || $f['foot'] !== '' || $f['pos'] !== '' || $f['sort'] !== '' || $f['status'] !== ''; }
 
 /** Approved players matching the filters; each row gets a 'stats' entry. Admin sees archived players too. */
 function players_filtered(array $f, bool $admin): array
@@ -336,6 +342,16 @@ function players_filtered(array $f, bool $admin): array
     }
     if ($f['team']) { $w[] = '(p.current_team_id = ? OR EXISTS (SELECT 1 FROM player_teams pt WHERE pt.player_id = p.id AND pt.team_id = ?))'; array_push($a, $f['team'], $f['team']); }
     if ($f['pos'] !== '') { $w[] = '(p.preferred_position = ? OR p.secondary_position = ?)'; array_push($a, $f['pos'], $f['pos']); }
+    if ($f['cat'] !== '') {
+        $in = implode(',', array_fill(0, count(POSITION_GROUPS[$f['cat']]), '?'));
+        $w[] = '(p.preferred_position IN (' . $in . ') OR p.secondary_position IN (' . $in . '))'; array_push($a, ...POSITION_GROUPS[$f['cat']], ...POSITION_GROUPS[$f['cat']]);
+    }
+    if ($f['foot'] !== '') { $w[] = 'p.strong_foot = ?'; $a[] = $f['foot']; }
+    if ($f['comp']) {   // players of the teams that take part in this tournament (current team, past team or squad spot)
+        $w[] = 'EXISTS (SELECT 1 FROM comp_teams ct JOIN teams tt ON LOWER(tt.name) = LOWER(ct.team_name) WHERE ct.competition_id = ? AND (tt.id = p.current_team_id
+                 OR EXISTS (SELECT 1 FROM player_teams pt2 WHERE pt2.player_id = p.id AND pt2.team_id = tt.id) OR EXISTS (SELECT 1 FROM team_squad sq WHERE sq.player_id = p.id AND sq.team_id = tt.id)))';
+        $a[] = $f['comp'];
+    }
     if ($admin) {
         if ($f['status'] === 'active') { $w[] = 'p.is_active = 1'; }
         if ($f['status'] === 'archived') { $w[] = 'p.is_active = 0'; }
@@ -364,8 +380,11 @@ function player_filter_bar(array $f, bool $admin, array $keep = []): string
     $h = '<form method="get" class="pf-bar" role="search">';
     foreach ($keep as $k => $v) { $h .= '<input type="hidden" name="' . e($k) . '" value="' . e($v) . '">'; }
     $h .= '<div class="pf-search"><i class="bi bi-search"></i><input type="search" name="q" value="' . e($f['q']) . '" placeholder="Search name, nickname or player ID" autocomplete="off"></div>'
+        . $sel('comp', lookup('SELECT id, name FROM competitions ORDER BY name'), $f['comp'], 'All tournaments')
         . $sel('team', array_column($teams, 'name', 'id'), $f['team'], 'All teams')
-        . $sel('pos', POSITION_NAMES, $f['pos'], 'All positions');
+        . $sel('cat', array_combine(array_keys(POSITION_GROUPS), array_map(fn($k) => $k . 's', array_keys(POSITION_GROUPS))), $f['cat'], 'All categories')
+        . $sel('pos', POSITION_NAMES, $f['pos'], 'All positions')
+        . $sel('foot', ['Right' => 'Right foot', 'Left' => 'Left foot', 'Both' => 'Both feet'], $f['foot'], 'Any foot');
     if ($admin) { $h .= $sel('status', ['active' => 'Active', 'archived' => 'Archived', 'featured' => 'On homepage'], $f['status'], 'Any status'); }
     $h .= $sel('sort', ['name' => 'Name A-Z', 'rating' => 'Best rated', 'goals' => 'Most goals', 'assists' => 'Most assists', 'matches' => 'Most matches', 'number' => 'Jersey number'], $f['sort'], 'Sort: default');
     $h .= '<button class="btn btn-accent" type="submit"><i class="bi bi-funnel"></i> Filter</button>';
