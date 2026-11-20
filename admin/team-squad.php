@@ -36,9 +36,10 @@ if ($sqTid && is_post() && post('op') === 'add_players') {
         $shirt = $pl['jersey_number'] !== null ? (int)$pl['jersey_number'] : null;
         if ($shirt) { $num->execute([$sqTid, $shirt]); if ((int)$num->fetchColumn()) { $shirt = null; $noNum++; } }
         $ins->execute([$sqTid, $shirt ?: null, $pl['full_name'], $pl['preferred_position'], $pl['photo'], $pid]);
+        player_join_team($pid, $sqTid);   // the team also appears on the player's profile
         $have++; $added++;
     }
-    $msg = $added . ' player' . ($added === 1 ? '' : 's') . ' added to the squad.';
+    $msg = $added . ' player' . ($added === 1 ? '' : 's') . ' added to the squad and the team added to their profiles.';
     if ($noNum) { $msg .= ' ' . $noNum . ' had a shirt number already taken, so it was left empty.'; }
     if ($dup) { $msg .= ' ' . $dup . ' already in the squad.'; }
     if ($full) { $msg .= ' ' . $full . ' not added: the squad is full (' . SQUAD_MAX . ').'; }
@@ -103,6 +104,8 @@ team_admin_page('team-squad.php', [
         return null;
     },
     'after_save' => function (int $id, array $data, bool $isNew) {
+        $sr = db()->query('SELECT team_id, player_id FROM team_squad WHERE id = ' . $id)->fetch();
+        if ($sr && $sr['player_id']) { player_join_team((int)$sr['player_id'], (int)$sr['team_id']); }
         if (!empty($data['is_captain'])) { db()->prepare('UPDATE team_squad SET is_captain = 0 WHERE team_id = ? AND id <> ?')->execute([db()->query('SELECT team_id FROM team_squad WHERE id = ' . $id)->fetchColumn(), $id]); }
     },
     'fields' => [

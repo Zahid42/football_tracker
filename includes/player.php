@@ -422,3 +422,29 @@ function site_search(string $q, int $limit = 20, string $type = 'all'): array
     }
     return $out;
 }
+
+
+/**
+ * Puts a team on a player's profile ("Teams played for") when he is added to that team's squad.
+ * Becomes his current team when he has none yet; otherwise it is added as a team he played for.
+ */
+function player_join_team(int $pid, int $tid): void
+{
+    if ($pid <= 0 || $tid <= 0) { return; }
+    $pdo = db();
+    $has = $pdo->prepare('SELECT COUNT(*) FROM player_teams WHERE player_id = ? AND team_id = ?'); $has->execute([$pid, $tid]);
+    if ((int)$has->fetchColumn()) { return; }
+    $cur = $pdo->prepare('SELECT current_team_id FROM players WHERE id = ?'); $cur->execute([$pid]);
+    $noCurrent = !(int)$cur->fetchColumn();
+    $pdo->prepare('INSERT INTO player_teams (player_id, team_id, is_current) VALUES (?, ?, ?)')->execute([$pid, $tid, $noCurrent ? 1 : 0]);
+    if ($noCurrent) { $pdo->prepare('UPDATE players SET current_team_id = ? WHERE id = ?')->execute([$tid, $pid]); }
+}
+
+/** One-time: players who are already in a team squad get that team on their profile too. */
+function ft_squad_profile_backfill(): void
+{
+    $pdo = db();
+    if ($pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'squad_profile_v'")->fetchColumn() === '1') { return; }
+    foreach ($pdo->query('SELECT DISTINCT player_id, team_id FROM team_squad WHERE player_id IS NOT NULL')->fetchAll() as $r) { player_join_team((int)$r['player_id'], (int)$r['team_id']); }
+    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['squad_profile_v', '1']);
+}
