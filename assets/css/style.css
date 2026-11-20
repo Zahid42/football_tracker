@@ -803,3 +803,7 @@ body.public-body > .ft-footer { flex-shrink: 0; margin-top: 2rem; margin-bottom:
 /* homepage search bar sits a little lower, with more room above it */
 .home-search p { margin-bottom: 3.2rem; }
 @media (max-width: 575.98px) { .home-search p { margin-bottom: 2.4rem; } }
+
+/* everything between the navbar and the footer sits a little lower */
+body.public-body > main { padding-top: 1.5rem; }
+@media (max-width: 767.98px) { body.public-body > main { padding-top: 1rem; } }
