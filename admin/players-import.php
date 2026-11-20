@@ -116,16 +116,17 @@ if (is_post()) {
         $imp = $_SESSION['pl_import'] ?? null; unset($_SESSION['pl_import']);
         if (!$imp) { flash_set('danger', 'The preview expired. Upload the list again.'); redirect('admin/players-import.php'); }
         $team = $imp['team'] && isset($teamOptions[$imp['team']]) ? (int)$imp['team'] : 0;
-        $pdo = db(); $n = 0;
+        $pdo = db(); $n = 0; $inSquad = 0; $notSquad = 0;
         $ins = $pdo->prepare("INSERT INTO players (full_name, nickname, date_of_birth, preferred_position, jersey_number, current_team_id, is_active, approval_status, public_code) VALUES (?,?,?,?,?,?,1,'approved',?)");
         $lnk = $pdo->prepare('INSERT INTO player_teams (player_id, team_id, is_current) VALUES (?, ?, 1)');
         foreach ($imp['rows'] as $r) {
             if ($r['status'] !== 'ok') { continue; }
             $ins->execute([$r['name'], $r['nick'] !== '' ? $r['nick'] : null, $r['dob'], $r['pos'] !== '' ? $r['pos'] : null, $r['jersey'], $team ?: null, ft_new_code()]);
-            if ($team) { $lnk->execute([(int)$pdo->lastInsertId(), $team]); }
+            $newId = (int)$pdo->lastInsertId();
+            if ($team) { $lnk->execute([$newId, $team]); if (squad_add_player($newId, $team) === 'added') { $inSquad++; } else { $notSquad++; } }   // also into the team's squad / pitch view
             $n++;
         }
-        flash_set('success', $n . ' player' . ($n === 1 ? '' : 's') . ' added to the player list.');
+        flash_set('success', $n . ' player' . ($n === 1 ? '' : 's') . ' added to the player list' . ($team ? ', ' . $inSquad . ' into the squad of ' . $teamOptions[$team] . ($notSquad ? ' (' . $notSquad . ' not added to the squad: it is full, ' . SQUAD_MAX . ' players)' : '') : '') . '.');
         redirect('admin/players.php');
     }
 }
@@ -155,7 +156,7 @@ require ROOT_PATH . '/includes/admin_header.php';
   <form method="post" enctype="multipart/form-data" class="ft-card p-4"><?= csrf_field() ?><input type="hidden" name="op" value="preview">
     <div class="mb-3"><label class="form-label" for="file">Text file (.txt or .csv)</label><input class="form-control" type="file" id="file" name="file" accept=".txt,.csv,.tsv,text/plain,text/csv"></div>
     <div class="mb-3"><label class="form-label" for="list">...or paste the list here</label><textarea class="form-control" id="list" name="list" rows="7" placeholder="Karim Rahman, GK, 1&#10;Tanvir Ahmed, Striker, 9"></textarea></div>
-    <div class="mb-3"><label class="form-label" for="team_id">Add all of them to a team (optional)</label><select class="form-select" id="team_id" name="team_id"><?= sel_opts($teamOptions, '', '- no team -') ?></select></div>
+    <div class="mb-3"><label class="form-label" for="team_id">Add all of them to a team (optional)</label><select class="form-select" id="team_id" name="team_id"><?= sel_opts($teamOptions, '', '- no team -') ?></select><div class="form-text">They are added to that team's squad (list and pitch view) and the team appears on each player's profile.</div></div>
     <button class="btn btn-accent"><i class="bi bi-eye"></i> Preview</button>
   </form></div>
   <div class="col-lg-5"><div class="ft-card p-4"><h2 class="h6 section-title">File format</h2>

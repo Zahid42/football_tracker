@@ -475,3 +475,30 @@ function squad_make_profile(int $squadId): ?int
     player_join_team($pid, $tid);
     return $pid;
 }
+
+
+/**
+ * Adds an existing player to a team's squad (the pitch and list views) and puts the team on the player's profile.
+ * Returns 'added', 'dup' (already in the squad) or 'full' (squad limit reached; the team still goes on the profile).
+ * When the team already has a starting line-up ticked that is not yet full, the new player takes a free place on the pitch.
+ */
+function squad_add_player(int $pid, int $tid, ?bool &$numberTaken = null): string
+{
+    $pdo = db();
+    player_join_team($pid, $tid);
+    $in = $pdo->prepare('SELECT COUNT(*) FROM team_squad WHERE team_id = ? AND player_id = ?'); $in->execute([$tid, $pid]);
+    if ((int)$in->fetchColumn()) { return 'dup'; }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM team_squad WHERE team_id = ' . $tid)->fetchColumn() >= SQUAD_MAX) { return 'full'; }
+    $g = $pdo->prepare("SELECT full_name, photo, preferred_position, jersey_number FROM players WHERE id = ? AND approval_status = 'approved'"); $g->execute([$pid]);
+    $p = $g->fetch(); if (!$p) { return 'dup'; }
+    $shirt = $p['jersey_number'] !== null && (int)$p['jersey_number'] > 0 ? (int)$p['jersey_number'] : null;
+    if ($shirt) {
+        $t = $pdo->prepare('SELECT COUNT(*) FROM team_squad WHERE team_id = ? AND shirt_number = ?'); $t->execute([$tid, $shirt]);
+        if ((int)$t->fetchColumn()) { $shirt = null; $numberTaken = true; }
+    }
+    $flagged = (int)$pdo->query('SELECT COUNT(*) FROM team_squad WHERE team_id = ' . $tid . ' AND is_starter = 1')->fetchColumn();
+    $starter = $flagged > 0 && $flagged < team_pitch_size($tid) ? 1 : 0;
+    $pdo->prepare('INSERT INTO team_squad (team_id, shirt_number, name, position, photo, player_id, is_starter) VALUES (?,?,?,?,?,?,?)')
+        ->execute([$tid, $shirt, $p['full_name'], $p['preferred_position'], $p['photo'], $pid, $starter]);
+    return 'added';
+}

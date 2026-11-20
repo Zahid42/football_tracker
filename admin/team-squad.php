@@ -31,25 +31,13 @@ if ($sqTid && is_post() && post('op') === 'make_profiles') {
 if ($sqTid && is_post() && post('op') === 'add_players') {
     csrf_require();
     $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['pick'] ?? [])))));
-    $pdo = db();
-    $have = (int)$pdo->query('SELECT COUNT(*) FROM team_squad WHERE team_id = ' . $sqTid)->fetchColumn();
-    $added = 0; $dup = 0; $full = 0; $noNum = 0;
-    $get = $pdo->prepare("SELECT full_name, photo, preferred_position, jersey_number FROM players WHERE id = ? AND approval_status = 'approved'");
-    $in  = $pdo->prepare('SELECT COUNT(*) FROM team_squad WHERE team_id = ? AND player_id = ?');
-    $num = $pdo->prepare('SELECT COUNT(*) FROM team_squad WHERE team_id = ? AND shirt_number = ?');
-    $ins = $pdo->prepare('INSERT INTO team_squad (team_id, shirt_number, name, position, photo, player_id) VALUES (?,?,?,?,?,?)');
+    $added = 0; $dup = 0; $full = 0; $noNum = false;
     foreach ($ids as $pid) {
-        $get->execute([$pid]); $pl = $get->fetch(); if (!$pl) { continue; }
-        $in->execute([$sqTid, $pid]); if ((int)$in->fetchColumn()) { $dup++; continue; }
-        if ($have >= SQUAD_MAX) { $full++; continue; }
-        $shirt = $pl['jersey_number'] !== null ? (int)$pl['jersey_number'] : null;
-        if ($shirt) { $num->execute([$sqTid, $shirt]); if ((int)$num->fetchColumn()) { $shirt = null; $noNum++; } }
-        $ins->execute([$sqTid, $shirt ?: null, $pl['full_name'], $pl['preferred_position'], $pl['photo'], $pid]);
-        player_join_team($pid, $sqTid);   // the team also appears on the player's profile
-        $have++; $added++;
+        $r = squad_add_player($pid, $sqTid, $noNum);   // squad spot + the team on the player's profile
+        if ($r === 'added') { $added++; } elseif ($r === 'dup') { $dup++; } else { $full++; }
     }
     $msg = $added . ' player' . ($added === 1 ? '' : 's') . ' added to the squad and the team added to their profiles.';
-    if ($noNum) { $msg .= ' ' . $noNum . ' had a shirt number already taken, so it was left empty.'; }
+    if ($noNum) { $msg .= ' A shirt number that was already taken was left empty.'; }
     if ($dup) { $msg .= ' ' . $dup . ' already in the squad.'; }
     if ($full) { $msg .= ' ' . $full . ' not added: the squad is full (' . SQUAD_MAX . ').'; }
     flash_set($added ? 'success' : 'warning', $msg);
