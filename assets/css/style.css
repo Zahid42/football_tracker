@@ -800,3 +800,6 @@ body.public-body > .ft-footer { flex-shrink: 0; margin-top: 2rem; margin-bottom:
   .comp-standings th:nth-child(n+3), .comp-standings td:nth-child(n+3) { width: 1.9rem; }
   .comp-standings th:last-child, .comp-standings td:last-child { padding-right: .6rem; }
 }
+/* homepage search bar sits a little lower, with more room above it */
+.home-search p { margin-bottom: 3.2rem; }
+@media (max-width: 575.98px) { .home-search p { margin-bottom: 2.4rem; } }
