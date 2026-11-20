@@ -18,6 +18,15 @@ if ($sqTid && is_post() && post('op') === 'pitch_size') {
     redirect('admin/team-squad.php');
 }
 
+/** Give every squad spot that is only a typed name a real player profile (linked to a same-name player when one exists). */
+if ($sqTid && is_post() && post('op') === 'make_profiles') {
+    csrf_require();
+    $ids = db()->query('SELECT id FROM team_squad WHERE team_id = ' . $sqTid . ' AND player_id IS NULL')->fetchAll(PDO::FETCH_COLUMN);
+    $made = 0; foreach ($ids as $sid) { if (squad_make_profile((int)$sid)) { $made++; } }
+    flash_set($made ? 'success' : 'warning', $made . ' squad member' . ($made === 1 ? '' : 's') . ' now ' . ($made === 1 ? 'has' : 'have') . ' a player profile, and this team is on their profiles.');
+    redirect('admin/team-squad.php');
+}
+
 /** Add players picked from the overall player list straight into this team's squad. */
 if ($sqTid && is_post() && post('op') === 'add_players') {
     csrf_require();
@@ -50,6 +59,12 @@ if ($sqTid && is_post() && post('op') === 'add_players') {
 team_admin_page('team-squad.php', [
     'before_list' => function () use ($sqTid) {
         $size = team_pitch_size($sqTid);
+        $noProf = (int)db()->query('SELECT COUNT(*) FROM team_squad WHERE team_id = ' . (int)$sqTid . ' AND player_id IS NULL')->fetchColumn();
+        if ($noProf) {
+            echo '<form method="post" class="ft-card p-3 mb-3 d-flex flex-wrap gap-2 align-items-center" style="border-color:var(--accent)">' . csrf_field() . '<input type="hidden" name="op" value="make_profiles">'
+               . '<span><i class="bi bi-person-exclamation"></i> <b>' . $noProf . '</b> squad member' . ($noProf === 1 ? ' is' : 's are') . ' only a name, with no player profile.</span>'
+               . '<button class="btn btn-accent btn-sm ms-md-auto" onclick="return confirm(\'Create a player profile for each of these squad members? Names that already match a player are linked instead.\')"><i class="bi bi-person-plus"></i> Make them players</button></form>';
+        }
         echo '<form method="post" class="ft-card p-3 mb-3 d-flex flex-wrap gap-2 align-items-center">' . csrf_field() . '<input type="hidden" name="op" value="pitch_size">'
            . '<label class="fw-semibold mb-0" for="pitchSize"><i class="bi bi-people"></i> Players allowed on the pitch</label>'
            . '<select class="form-select w-auto" id="pitchSize" name="pitch_size">';
@@ -104,8 +119,7 @@ team_admin_page('team-squad.php', [
         return null;
     },
     'after_save' => function (int $id, array $data, bool $isNew) {
-        $sr = db()->query('SELECT team_id, player_id FROM team_squad WHERE id = ' . $id)->fetch();
-        if ($sr && $sr['player_id']) { player_join_team((int)$sr['player_id'], (int)$sr['team_id']); }
+        squad_make_profile($id);   // a squad spot is always a real player: linked to the same-name player or given a new profile
         if (!empty($data['is_captain'])) { db()->prepare('UPDATE team_squad SET is_captain = 0 WHERE team_id = ? AND id <> ?')->execute([db()->query('SELECT team_id FROM team_squad WHERE id = ' . $id)->fetchColumn(), $id]); }
     },
     'fields' => [
@@ -114,7 +128,7 @@ team_admin_page('team-squad.php', [
         ['name' => 'position', 'label' => 'Position', 'type' => 'select', 'nullable' => true, 'options' => fn() => POSITION_NAMES],
         ['name' => 'is_starter', 'label' => 'Starting XI (shown on the pitch)', 'type' => 'checkbox'],
         ['name' => 'is_captain', 'label' => 'Captain', 'type' => 'checkbox'],
-        ['name' => 'player_id', 'label' => 'Linked website player (optional)', 'type' => 'select', 'nullable' => true, 'options' => fn() => player_options(false), 'help' => 'Links this squad spot to a registered player\'s profile.'],
+        ['name' => 'player_id', 'label' => 'Linked website player (optional)', 'type' => 'select', 'nullable' => true, 'options' => fn() => player_options(false), 'help' => 'Leave empty to create a player profile from the name automatically. Links this squad spot to a registered player\'s profile.'],
         ['name' => 'photo', 'label' => 'Photo', 'type' => 'image', 'dir' => 'team-people'],
         ['name' => 'notes', 'label' => 'Note', 'max' => 255],
     ],

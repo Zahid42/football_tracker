@@ -448,3 +448,30 @@ function ft_squad_profile_backfill(): void
     foreach ($pdo->query('SELECT DISTINCT player_id, team_id FROM team_squad WHERE player_id IS NOT NULL')->fetchAll() as $r) { player_join_team((int)$r['player_id'], (int)$r['team_id']); }
     $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['squad_profile_v', '1']);
 }
+
+
+/**
+ * Makes sure a team-squad spot is a real player: links it to an existing player with the same name,
+ * or creates a new approved player profile, and puts the team on that player's profile.
+ * Returns the player id (null if the squad spot does not exist).
+ */
+function squad_make_profile(int $squadId): ?int
+{
+    $pdo = db();
+    $st = $pdo->prepare('SELECT * FROM team_squad WHERE id = ?'); $st->execute([$squadId]); $sq = $st->fetch();
+    if (!$sq) { return null; }
+    $tid = (int)$sq['team_id'];
+    if ($sq['player_id']) { player_join_team((int)$sq['player_id'], $tid); return (int)$sq['player_id']; }
+    $name = trim((string)$sq['name']);
+    if ($name === '') { return null; }
+    $f = $pdo->prepare("SELECT id FROM players WHERE LOWER(full_name) = LOWER(?) AND approval_status = 'approved' ORDER BY id LIMIT 1"); $f->execute([$name]);
+    $pid = (int)$f->fetchColumn();
+    if (!$pid) {
+        $pdo->prepare("INSERT INTO players (full_name, preferred_position, jersey_number, photo, is_active, approval_status, public_code) VALUES (?, ?, ?, ?, 1, 'approved', ?)")
+            ->execute([$name, $sq['position'] ?: null, $sq['shirt_number'] !== null ? (int)$sq['shirt_number'] : null, $sq['photo'] ?: null, ft_new_code()]);
+        $pid = (int)$pdo->lastInsertId();
+    }
+    $pdo->prepare('UPDATE team_squad SET player_id = ? WHERE id = ?')->execute([$pid, $squadId]);
+    player_join_team($pid, $tid);
+    return $pid;
+}
