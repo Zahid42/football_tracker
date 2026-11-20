@@ -788,12 +788,7 @@ body.public-body > .ft-footer { flex-shrink: 0; margin-top: 2rem; margin-bottom:
 
 /* homepage: more room under the navbar + "Browse players" filter */
 .home-search { justify-content: flex-start; min-height: 70vh; padding-top: clamp(3rem, 11vh, 6.5rem); padding-bottom: 2rem; }
-.home-browse { width: 100%; max-width: 860px; margin: 1.6rem auto 0; padding: .9rem 1rem 1rem; background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; text-align: left; }
-.hb-title { font-weight: 700; font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: .6rem; }
-.hb-row { display: flex; flex-wrap: wrap; gap: .5rem; }
-.hb-row .form-select { flex: 1 1 150px; min-width: 0; width: auto; }
-.hb-row .btn { flex: 0 0 auto; }
-@media (max-width: 575.98px) { .home-search { min-height: 0; padding-top: 2.2rem; } .hb-row .form-select, .hb-row .btn { flex: 1 1 100%; } }
+@media (max-width: 575.98px) { .home-search { min-height: 0; padding-top: 2.2rem; } }
 
 /* league / group table: fits a phone screen without sideways scrolling (GF/GA hidden under 576px, GD and Pts stay) */
 .comp-standings { width: 100%; }

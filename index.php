@@ -23,24 +23,5 @@ $counts = [
       <<?= $tag ?> class="home-stat<?= $link ? '' : ' no-link' ?>"><i class="bi <?= e($icon) ?>"></i><b><?= number_format($n) ?></b><span><?= e($label) ?></span></<?= $link ? 'a' : 'div' ?>>
     <?php endforeach; ?>
   </div>
-  <?php if (setting('home_stat_players_show', '1') === '1'): ?>
-  <form class="home-browse" method="get" action="<?= e(url('players.php')) ?>" role="search">
-    <div class="hb-title"><i class="bi bi-people"></i> Browse players</div>
-    <div class="hb-row">
-      <?php
-      $hbSel = function (string $name, array $opts, string $all) {
-          $h = '<select class="form-select" name="' . $name . '" aria-label="' . e($all) . '" onchange="this.form.submit()"><option value="">' . e($all) . '</option>';
-          foreach ($opts as $k => $v) { $h .= '<option value="' . e((string)$k) . '">' . e($v) . '</option>'; }
-          return $h . '</select>';
-      };
-      echo $hbSel('comp', lookup('SELECT id, name FROM competitions ORDER BY name'), 'By tournament');
-      echo $hbSel('team', lookup("SELECT id, name FROM teams WHERE status = 'active' ORDER BY name"), 'By team');
-      echo $hbSel('cat', array_combine(array_keys(POSITION_GROUPS), array_map(fn($k) => $k . 's', array_keys(POSITION_GROUPS))), 'By category');
-      echo $hbSel('pos', POSITION_NAMES, 'By position');
-      ?>
-      <a class="btn btn-accent" href="<?= e(url('players.php')) ?>"><i class="bi bi-grid"></i> All players</a>
-    </div>
-  </form>
-  <?php endif; ?>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>
