@@ -63,7 +63,7 @@ function import_parse(string $text): array
     if (str_starts_with($text, "\xEF\xBB\xBF")) { $text = substr($text, 3); }
     if (!mb_check_encoding($text, 'UTF-8')) { $text = mb_convert_encoding($text, 'UTF-8', 'Windows-1252'); }
     $rows = []; $seen = []; $cat = null; $secPos = null; $secDef = null;
-    $exists = db()->prepare('SELECT COUNT(*) FROM players WHERE LOWER(full_name) = LOWER(?) AND (date_of_birth <=> ? OR ? IS NULL OR date_of_birth IS NULL)');
+    $exists = db()->prepare("SELECT id FROM players WHERE approval_status = 'approved' AND LOWER(TRIM(full_name)) = ? AND (date_of_birth <=> ? OR ? IS NULL OR date_of_birth IS NULL) ORDER BY id LIMIT 1");
     foreach (preg_split('/\r\n|\r|\n/', $text) as $i => $line) {
         $line = trim($line);
         if ($line === '') { continue; }
@@ -84,10 +84,11 @@ function import_parse(string $text): array
         if (isset($c[2]) && $c[2] !== '') { if (ctype_digit($c[2]) && (int)$c[2] >= 0 && (int)$c[2] <= 99) { $r['jersey'] = (int)$c[2]; } else { $r['msg'][] = 'Jersey "' . $c[2] . '" ignored (use 0-99).'; } }
         if (isset($c[3])) { $r['nick'] = mb_substr($c[3], 0, 60); }
         if (isset($c[4]) && $c[4] !== '') { $d = import_date($c[4]); if ($d === null) { $r['msg'][] = 'Date of birth "' . $c[4] . '" ignored (use YYYY-MM-DD).'; } elseif ($d !== '') { $r['dob'] = $d; } }
-        $key = mb_strtolower($name) . '|' . ($r['dob'] ?? '');
-        $exists->execute([$name, $r['dob'], $r['dob']]);
+        $key = ft_name_key($name);
+        $exists->execute([$key, $r['dob'], $r['dob']]);
+        $have = (int)$exists->fetchColumn();
         if (isset($seen[$key])) { $r['status'] = 'skip'; $r['msg'][] = 'Repeated in this list.'; }
-        elseif ((int)$exists->fetchColumn()) { $r['status'] = 'skip'; $r['msg'][] = 'A player with this name already exists.'; }
+        elseif ($have) { $r['status'] = 'exists'; $r['pid'] = $have; $r['msg'][] = 'This player is already in the list (no second profile is made).'; }
         $seen[$key] = 1;
         $r['raw'] = $line; $rows[] = $r;
     }
@@ -116,17 +117,27 @@ if (is_post()) {
         $imp = $_SESSION['pl_import'] ?? null; unset($_SESSION['pl_import']);
         if (!$imp) { flash_set('danger', 'The preview expired. Upload the list again.'); redirect('admin/players-import.php'); }
         $team = $imp['team'] && isset($teamOptions[$imp['team']]) ? (int)$imp['team'] : 0;
-        $pdo = db(); $n = 0; $inSquad = 0; $notSquad = 0;
+        $pdo = db(); $n = 0; $inSquad = 0; $notSquad = 0; $nJoin = 0; $already = 0;
         $ins = $pdo->prepare("INSERT INTO players (full_name, nickname, date_of_birth, preferred_position, jersey_number, current_team_id, is_active, approval_status, public_code) VALUES (?,?,?,?,?,?,1,'approved',?)");
         $lnk = $pdo->prepare('INSERT INTO player_teams (player_id, team_id, is_current) VALUES (?, ?, 1)');
         foreach ($imp['rows'] as $r) {
+            if ($r['status'] === 'exists') {   // already a player: no copy; with a team chosen they join that team and its squad
+                if ($team) { $pid = (int)$r['pid']; if (squad_add_player($pid, $team) === 'added') { $inSquad++; $nJoin++; } else { $kept = (int)$pdo->query('SELECT COUNT(*) FROM team_squad WHERE team_id = ' . $team . ' AND player_id = ' . $pid)->fetchColumn(); if ($kept) { $already++; } else { $notSquad++; } } }
+                continue;
+            }
             if ($r['status'] !== 'ok') { continue; }
             $ins->execute([$r['name'], $r['nick'] !== '' ? $r['nick'] : null, $r['dob'], $r['pos'] !== '' ? $r['pos'] : null, $r['jersey'], $team ?: null, ft_new_code()]);
             $newId = (int)$pdo->lastInsertId();
             if ($team) { $lnk->execute([$newId, $team]); if (squad_add_player($newId, $team) === 'added') { $inSquad++; } else { $notSquad++; } }   // also into the team's squad / pitch view
             $n++;
         }
-        flash_set('success', $n . ' player' . ($n === 1 ? '' : 's') . ' added to the player list' . ($team ? ', ' . $inSquad . ' into the squad of ' . $teamOptions[$team] . ($notSquad ? ' (' . $notSquad . ' not added to the squad: it is full, ' . SQUAD_MAX . ' players)' : '') : '') . '.');
+        $msg = $n . ' new player' . ($n === 1 ? '' : 's') . ' added to the player list';
+        if ($team) {
+            $msg .= '; ' . $inSquad . ' player' . ($inSquad === 1 ? '' : 's') . ' put into the squad of ' . $teamOptions[$team] . ($nJoin ? ' (' . $nJoin . ' of them already existed, no copies made)' : '');
+            if ($already) { $msg .= '; ' . $already . ' already in that squad'; }
+            if ($notSquad) { $msg .= '; ' . $notSquad . ' not added to the squad because it is full (' . SQUAD_MAX . ' players)'; }
+        }
+        flash_set('success', $msg . '.');
         redirect('admin/players.php');
     }
 }
@@ -138,17 +149,17 @@ require ROOT_PATH . '/includes/admin_header.php';
   <h1 class="page-title h3 mb-0"><i class="bi bi-file-earmark-arrow-up"></i> Import players from a list</h1>
   <a class="btn btn-outline-theme" href="<?= e(url('admin/players.php')) ?>"><i class="bi bi-arrow-left"></i> Players</a>
 </div>
-<?php if (($_GET['step'] ?? '') === 'preview' && !empty($_SESSION['pl_import'])): $imp = $_SESSION['pl_import']; $ok = count(array_filter($imp['rows'], fn($r) => $r['status'] === 'ok')); ?>
-  <div class="ft-card p-3 mb-3"><b><?= $ok ?></b> of <?= count($imp['rows']) ?> lines will be added<?= $imp['team'] && isset($teamOptions[$imp['team']]) ? ' to team <b>' . e($teamOptions[$imp['team']]) . '</b>' : '' ?>. Lines marked "Skipped" are not imported. Nothing is saved until you confirm.</div>
+<?php if (($_GET['step'] ?? '') === 'preview' && !empty($_SESSION['pl_import'])): $imp = $_SESSION['pl_import']; $tm = $imp['team'] && isset($teamOptions[$imp['team']]); $ok = count(array_filter($imp['rows'], fn($r) => $r['status'] === 'ok')); $ex = $tm ? count(array_filter($imp['rows'], fn($r) => $r['status'] === 'exists')) : 0; $todo = $ok + $ex; ?>
+  <div class="ft-card p-3 mb-3"><b><?= $ok ?></b> of <?= count($imp['rows']) ?> lines will be added as new players<?= $ex ? ' and <b>' . $ex . '</b> existing players put into the team' : '' ?><?= $imp['team'] && isset($teamOptions[$imp['team']]) ? ' to team <b>' . e($teamOptions[$imp['team']]) . '</b>' : '' ?>. Lines marked "Skipped" are not imported. Nothing is saved until you confirm.</div>
   <div class="table-responsive"><table class="table ft-table align-middle"><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Jersey</th><th>Nickname</th><th>Born</th><th>Result</th></tr></thead><tbody>
   <?php foreach ($imp['rows'] as $r): ?>
-    <tr class="<?= $r['status'] === 'skip' ? 'text-muted-ft' : '' ?>"><td><?= (int)$r['line'] ?></td>
+    <tr class="<?= $r['status'] === 'skip' || ($r['status'] === 'exists' && !$tm) ? 'text-muted-ft' : '' ?>"><td><?= (int)$r['line'] ?></td>
     <?php if (!isset($r['name'])): ?><td colspan="5"><?= e($r['raw']) ?></td>
     <?php else: ?><td class="fw-semibold"><?= e($r['name']) ?></td><td><?= e($r['pos'] ? position_name($r['pos']) : '-') ?></td><td><?= $r['jersey'] !== null ? '#' . (int)$r['jersey'] : '-' ?></td><td><?= e($r['nick'] ?: '-') ?></td><td><?= e($r['dob'] ?? '-') ?></td><?php endif; ?>
-    <td><?= $r['status'] === 'ok' ? '<span class="badge text-bg-success">Add</span>' : '<span class="badge text-bg-secondary">Skipped</span>' ?><?php if ($r['msg']): ?><div class="small"><?= e(is_array($r['msg']) ? implode(' ', $r['msg']) : $r['msg']) ?></div><?php endif; ?></td></tr>
+    <td><?= $r['status'] === 'ok' ? '<span class="badge text-bg-success">Add</span>' : ($r['status'] === 'exists' ? '<span class="badge text-bg-info">' . ($tm ? 'Existing: add to team' : 'Already exists') . '</span>' : '<span class="badge text-bg-secondary">Skipped</span>') ?><?php if ($r['msg']): ?><div class="small"><?= e(is_array($r['msg']) ? implode(' ', $r['msg']) : $r['msg']) ?></div><?php endif; ?></td></tr>
   <?php endforeach; ?></tbody></table></div>
   <form method="post" class="d-flex gap-2"><?= csrf_field() ?>
-    <button class="btn btn-accent" name="op" value="confirm" <?= $ok ? '' : 'disabled' ?>><i class="bi bi-check-lg"></i> Add <?= $ok ?> player<?= $ok === 1 ? '' : 's' ?></button>
+    <button class="btn btn-accent" name="op" value="confirm" <?= $todo ? '' : 'disabled' ?>><i class="bi bi-check-lg"></i> Add <?= $todo ?> player<?= $todo === 1 ? '' : 's' ?></button>
     <a class="btn btn-outline-theme" href="<?= e(url('admin/players-import.php')) ?>">Cancel</a></form>
 <?php else: ?>
   <p class="text-muted-ft">Upload a text file (or paste a list) with <b>one player per line</b>. Imported players are added to the player list straight away and get their own 6-digit ID. Everything else (photo, biography, height...) can be edited later from the player list.</p>

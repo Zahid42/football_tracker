@@ -464,8 +464,7 @@ function squad_make_profile(int $squadId): ?int
     if ($sq['player_id']) { player_join_team((int)$sq['player_id'], $tid); return (int)$sq['player_id']; }
     $name = trim((string)$sq['name']);
     if ($name === '') { return null; }
-    $f = $pdo->prepare("SELECT id FROM players WHERE LOWER(full_name) = LOWER(?) AND approval_status = 'approved' ORDER BY id LIMIT 1"); $f->execute([$name]);
-    $pid = (int)$f->fetchColumn();
+    $pid = player_id_by_name($name);
     if (!$pid) {
         $pdo->prepare("INSERT INTO players (full_name, preferred_position, jersey_number, photo, is_active, approval_status, public_code) VALUES (?, ?, ?, ?, 1, 'approved', ?)")
             ->execute([$name, $sq['position'] ?: null, $sq['shirt_number'] !== null ? (int)$sq['shirt_number'] : null, $sq['photo'] ?: null, ft_new_code()]);
@@ -491,6 +490,12 @@ function squad_add_player(int $pid, int $tid, ?bool &$numberTaken = null): strin
     if ((int)$pdo->query('SELECT COUNT(*) FROM team_squad WHERE team_id = ' . $tid)->fetchColumn() >= SQUAD_MAX) { return 'full'; }
     $g = $pdo->prepare("SELECT full_name, photo, preferred_position, jersey_number FROM players WHERE id = ? AND approval_status = 'approved'"); $g->execute([$pid]);
     $p = $g->fetch(); if (!$p) { return 'dup'; }
+    $same = $pdo->prepare('SELECT id FROM team_squad WHERE team_id = ? AND player_id IS NULL AND LOWER(TRIM(name)) = ? ORDER BY id LIMIT 1');
+    $same->execute([$tid, ft_name_key($p['full_name'])]);
+    if ($typedId = (int)$same->fetchColumn()) {   // the squad already lists this person by typed name: link that spot instead of adding a second one
+        $pdo->prepare('UPDATE team_squad SET player_id = ? WHERE id = ?')->execute([$pid, $typedId]);
+        return 'added';
+    }
     $shirt = $p['jersey_number'] !== null && (int)$p['jersey_number'] > 0 ? (int)$p['jersey_number'] : null;
     if ($shirt) {
         $t = $pdo->prepare('SELECT COUNT(*) FROM team_squad WHERE team_id = ? AND shirt_number = ?'); $t->execute([$tid, $shirt]);
@@ -524,4 +529,101 @@ function ft_comp_teams_backfill(): void
         foreach ($pdo->query('SELECT DISTINCT team_name FROM comp_teams')->fetchAll(PDO::FETCH_COLUMN) as $n) { comp_team_to_list((string)$n); }
     }
     $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['comp_team_list_v', '1']);
+}
+
+
+/** Name as compared for duplicates: trimmed, single spaces, lower case. */
+function ft_name_key(string $n): string
+{
+    return mb_strtolower(trim((string)preg_replace('/\s+/u', ' ', $n)));
+}
+
+/** Id of the approved player with this name (case and spacing ignored), 0 when there is none. */
+function player_id_by_name(string $name): int
+{
+    $key = ft_name_key($name);
+    if ($key === '') { return 0; }
+    $f = db()->prepare("SELECT id FROM players WHERE approval_status = 'approved' AND LOWER(TRIM(full_name)) = ? ORDER BY id LIMIT 1");
+    $f->execute([$key]);
+    $id = (int)$f->fetchColumn();
+    if ($id) { return $id; }
+    $all = db()->query("SELECT id, full_name FROM players WHERE approval_status = 'approved' ORDER BY id")->fetchAll();   // names with doubled spaces
+    foreach ($all as $r) { if (ft_name_key($r['full_name']) === $key) { return (int)$r['id']; } }
+    return 0;
+}
+
+/**
+ * Squad clean-up for one team (or all teams): spots listed by typed name are linked to the player of that name,
+ * and the same person is never listed twice (the spots are merged, keeping shirt number, captain and starter flags).
+ * Returns how many spots were removed or linked.
+ */
+function squad_tidy(?int $teamId = null): int
+{
+    $pdo = db(); $changed = 0;
+    $teams = $teamId ? [$teamId] : $pdo->query('SELECT DISTINCT team_id FROM team_squad')->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($teams as $tid) {
+        $tid = (int)$tid;
+        $rows = $pdo->query('SELECT * FROM team_squad WHERE team_id = ' . $tid . ' ORDER BY id')->fetchAll();
+        foreach ($rows as $r) {   // link typed names to existing players
+            if ($r['player_id'] === null && ($pid = player_id_by_name((string)$r['name']))) {
+                $pdo->prepare('UPDATE team_squad SET player_id = ? WHERE id = ?')->execute([$pid, $r['id']]); player_join_team($pid, $tid); $changed++;
+            }
+        }
+        $rows = $pdo->query('SELECT * FROM team_squad WHERE team_id = ' . $tid . ' ORDER BY id')->fetchAll();
+        $keep = [];
+        foreach ($rows as $r) {
+            $k = $r['player_id'] !== null ? 'p' . $r['player_id'] : 'n' . ft_name_key((string)$r['name']);
+            if (!isset($keep[$k])) { $keep[$k] = $r; continue; }
+            $a = $keep[$k];
+            $set = []; $par = [];
+            foreach (['shirt_number', 'position', 'photo', 'notes'] as $c) { if (($a[$c] === null || $a[$c] === '') && $r[$c] !== null && $r[$c] !== '') { $set[] = "`$c` = ?"; $par[] = $r[$c]; $a[$c] = $r[$c]; } }
+            foreach (['is_captain', 'is_starter'] as $c) { if (!(int)$a[$c] && (int)$r[$c]) { $set[] = "`$c` = 1"; } }
+            $pdo->prepare('DELETE FROM team_squad WHERE id = ?')->execute([$r['id']]);
+            if ($set) { $par[] = $a['id']; $pdo->prepare('UPDATE team_squad SET ' . implode(', ', $set) . ' WHERE id = ?')->execute($par); }
+            $keep[$k] = $a; $changed++;
+        }
+    }
+    return $changed;
+}
+
+/** Groups of approved players that share a name (same person entered twice). Different birth dates keep two people apart. Each group: ids, oldest first. */
+function players_duplicate_groups(): array
+{
+    $g = [];
+    foreach (db()->query("SELECT id, full_name, date_of_birth FROM players WHERE approval_status = 'approved' ORDER BY id")->fetchAll() as $r) { $g[ft_name_key($r['full_name'])][] = $r; }
+    $out = [];
+    foreach ($g as $rows) {
+        if (count($rows) < 2) { continue; }
+        $dobs = array_values(array_unique(array_filter(array_column($rows, 'date_of_birth'))));
+        if (count($dobs) > 1) { continue; }   // clearly different people
+        $out[] = ['name' => $rows[0]['full_name'], 'ids' => array_map('intval', array_column($rows, 'id'))];
+    }
+    return $out;
+}
+
+/** Merge player $drop into $keep: all their data, teams and squad spots move over, empty profile fields are filled, then $drop is deleted. */
+function players_merge(int $keep, int $drop): bool
+{
+    if ($keep <= 0 || $drop <= 0 || $keep === $drop) { return false; }
+    $pdo = db();
+    $k = $pdo->prepare('SELECT * FROM players WHERE id = ?'); $k->execute([$keep]); $kp = $k->fetch();
+    $d = $pdo->prepare('SELECT * FROM players WHERE id = ?'); $d->execute([$drop]); $dp = $d->fetch();
+    if (!$kp || !$dp) { return false; }
+    $pdo->beginTransaction();
+    try {
+        foreach (['assists', 'auction_pool', 'calendar_events', 'gallery', 'goals', 'match_squad', 'match_statistics', 'members', 'trophies', 'team_squad'] as $t) {
+            if ($pdo->query("SHOW TABLES LIKE '$t'")->fetch()) { $pdo->prepare("UPDATE IGNORE `$t` SET player_id = ? WHERE player_id = ?")->execute([$keep, $drop]); }
+        }
+        $pdo->prepare('DELETE FROM team_squad WHERE player_id = ?')->execute([$drop]);
+        foreach ($pdo->query('SELECT team_id FROM player_teams WHERE player_id = ' . $drop)->fetchAll(PDO::FETCH_COLUMN) as $tid) { player_join_team($keep, (int)$tid); }
+        $fill = [];
+        foreach (['nickname', 'date_of_birth', 'career_start_date', 'preferred_position', 'secondary_position', 'strong_foot', 'jersey_number', 'height_cm', 'weight_kg', 'playing_style', 'bio', 'photo', 'current_team_id'] as $c) {
+            if (array_key_exists($c, $kp) && ($kp[$c] === null || $kp[$c] === '') && $dp[$c] !== null && $dp[$c] !== '') { $fill[$c] = $dp[$c]; }
+        }
+        if ($fill) { $pdo->prepare('UPDATE players SET ' . implode(', ', array_map(fn($c) => "`$c` = ?", array_keys($fill))) . ' WHERE id = ?')->execute([...array_values($fill), $keep]); }
+        $pdo->prepare('DELETE FROM players WHERE id = ?')->execute([$drop]);
+        $pdo->commit();
+    } catch (Throwable $e) { $pdo->rollBack(); return false; }
+    foreach ($pdo->query('SELECT DISTINCT team_id FROM team_squad WHERE player_id = ' . $keep)->fetchAll(PDO::FETCH_COLUMN) as $tid) { squad_tidy((int)$tid); }
+    return true;
 }

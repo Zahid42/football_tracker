@@ -190,6 +190,7 @@ function ft_squad_ensure(): void
     ft_pitch_size_ensure();
     ft_squad_profile_backfill();
     ft_comp_teams_backfill();
+    if ($pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'squad_tidy_v'")->fetchColumn() !== '1') { squad_tidy(); $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['squad_tidy_v', '1']); }
     $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'squad_starter_v'")->fetchColumn();
     if ($v === '1') { return; }
     if ($pdo->query("SHOW TABLES LIKE 'team_squad'")->fetch() && !$pdo->query("SHOW COLUMNS FROM team_squad LIKE 'is_starter'")->fetch()) {

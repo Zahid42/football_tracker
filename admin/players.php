@@ -44,6 +44,17 @@ function set_featured(int $id): void
 if (is_post()) {
     csrf_require();
     $op = post('op');
+    if ($op === 'merge_dupes') {   // same person entered twice: keep the oldest profile (or the one with an account), move everything over
+        $merged = 0; $mq = db()->prepare('SELECT COUNT(*) FROM members WHERE player_id = ?');
+        foreach (players_duplicate_groups() as $g) {
+            $keep = $g['ids'][0];
+            foreach ($g['ids'] as $pid) { $mq->execute([$pid]); if ((int)$mq->fetchColumn()) { $keep = $pid; break; } }
+            foreach ($g['ids'] as $pid) { if ($pid !== $keep && players_merge($keep, $pid)) { $merged++; } }
+        }
+        squad_tidy();
+        flash_set('success', $merged ? $merged . ' duplicate profile' . ($merged === 1 ? '' : 's') . ' merged: matches, goals, teams and squad places moved to the one remaining profile.' : 'No duplicates found.');
+        redirect('admin/' . $self);
+    }
     if ($op === 'feature') {
         $pl = get_player((int)post('id'));
         if ($pl) { set_featured((int)$pl['id']); flash_set('success', $pl['full_name'] . ' is now shown on the homepage.'); }
@@ -221,6 +232,8 @@ if ($action === 'new' || $action === 'edit'):
   <a class="btn btn-accent" href="<?= e(url('admin/' . $self . '?action=new')) ?>"><i class="bi bi-plus-lg"></i> Add Player</a></div>
 </div>
 <?php if ($np = count(pending_players())): ?><div class="alert alert-warning d-flex justify-content-between align-items-center"><span><i class="bi bi-person-exclamation"></i> <b><?= $np ?></b> registration<?= $np > 1 ? 's' : '' ?> waiting for approval.</span><a class="btn btn-sm btn-accent" href="<?= e(url('admin/' . $self . '?view=pending')) ?>">Review</a></div><?php endif; ?>
+<?php if ($dups = players_duplicate_groups()): ?><div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2"><span><i class="bi bi-files"></i> <b><?= count($dups) ?></b> player<?= count($dups) === 1 ? ' is' : 's are' ?> in the list more than once: <?= e(implode(', ', array_slice(array_column($dups, 'name'), 0, 6))) ?><?= count($dups) > 6 ? '...' : '' ?>.</span>
+  <form method="post" onsubmit="return confirm('Merge the duplicate profiles? Their matches, goals and teams are moved to the oldest profile and the extra copies are removed.')"><?= csrf_field() ?><input type="hidden" name="op" value="merge_dupes"><button class="btn btn-sm btn-accent"><i class="bi bi-intersect"></i> Merge duplicates</button></form></div><?php endif; ?>
 <?= player_filter_bar($f, true) ?>
 <div class="text-muted-ft small mb-2"><?= count($players) ?> player<?= count($players) === 1 ? '' : 's' ?><?= player_filter_active($f) ? ' found' : '' ?></div>
 <?php if (!$players): ?><div class="ft-card p-4 text-center text-muted-ft">No player matches these filters.</div><?php endif; ?>
