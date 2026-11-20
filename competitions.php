@@ -13,7 +13,7 @@ if (!$cur && $comps) { $cur = $comps[0]; }
 $hasKo = $cur && !empty($cur['knockout']) && comp_ko_rows((int)$cur['id']);
 $auc = $cur ? auc_get((int)$cur['id']) : null;
 $hasAuc = $auc && $auc['status'] !== 'setup';
-$tab = in_array($_GET['t'] ?? '', ['players', 'bracket', 'auction'], true) ? $_GET['t'] : 'table';
+$tab = in_array($_GET['t'] ?? '', ['players', 'roster', 'bracket', 'auction'], true) ? $_GET['t'] : 'table';
 if ($tab === 'bracket' && !$hasKo) { $tab = 'table'; }
 if ($tab === 'auction' && !$hasAuc) { $tab = 'table'; }
 $mode = $cur ? (string)$cur['format'] : 'League';
@@ -32,6 +32,7 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
     <input type="hidden" name="t" value="<?= e($tab) ?>">
     <div class="sw-tabs ms-auto">
       <a class="sw-tab<?= $tab === 'table' ? ' active' : '' ?>" href="<?= $self(['t' => 'table']) ?>"><i class="bi bi-table"></i> Table</a>
+      <a class="sw-tab<?= $tab === 'roster' ? ' active' : '' ?>" href="<?= $self(['t' => 'roster']) ?>"><i class="bi bi-person-lines-fill"></i> Player list</a>
       <a class="sw-tab<?= $tab === 'players' ? ' active' : '' ?>" href="<?= $self(['t' => 'players']) ?>"><i class="bi bi-people"></i> Player stats</a>
       <?php if ($hasAuc): ?><a class="sw-tab<?= $tab === 'auction' ? ' active' : '' ?>" href="<?= $self(['t' => 'auction']) ?>"><i class="bi bi-hammer"></i> Auction</a><?php endif; ?>
       <?php if ($hasKo): ?><a class="sw-tab<?= $tab === 'bracket' ? ' active' : '' ?>" href="<?= $self(['t' => 'bracket']) ?>"><i class="bi bi-diagram-3"></i> Bracket</a><?php endif; ?>
@@ -80,6 +81,61 @@ echo public_page_title('Competitions', 'League tables, group-stage tournaments a
           <span class="ri-main"><b><?= comp_team_link($r['home']) ?> <?= $r['hs'] === null ? 'vs' : $r['hs'] . ' - ' . $r['as'] ?> <?= comp_team_link($r['away']) ?></b><small><?= e((string)($r['stage'] ?? '')) ?></small></span>
           <span class="ri-pill <?= $r['hs'] === null ? 'k-match' : '' ?>"><?= $r['hs'] === null ? 'Upcoming' : 'FT' ?></span>
         </div><?php endforeach; ?></div>
+    <?php endif; ?>
+
+  <?php elseif ($tab === 'roster'): ?>
+    <?php
+    $roster = comp_roster((int)$cur['id']);
+    $view = ($_GET['v'] ?? 'pos') === 'team' ? 'team' : 'pos';
+    $teamNames = []; foreach ($roster as $r) { $teamNames[$r['team_id']] = $r['team']; } asort($teamNames);
+    $tf = (int)($_GET['tm'] ?? 0); if ($tf && !isset($teamNames[$tf])) { $tf = 0; }
+    $posOrder = array_flip(POSITIONS);
+    $shown = array_values(array_filter($roster, fn($r) => !$tf || (int)$r['team_id'] === $tf));
+    $cats = array_merge(array_keys(POSITION_GROUPS), ['Other']);
+    $row = function (array $r, bool $showTeam) {
+        $tag = $r['code'] ? 'a href="' . e(url($r['code'])) . '"' : 'div';
+        return '<div class="col-12 col-md-6 col-xl-4"><' . $tag . ' class="row-item squad-member"><span class="sq-no">' . ($r['number'] !== null ? (int)$r['number'] : '-') . '</span>'
+            . '<img class="sq-photo" src="' . e(upload_url($r['photo'])) . '" alt="" loading="lazy"><span class="ri-main"><b>' . e($r['name']) . '</b><small>'
+            . e($r['position'] ? position_name($r['position']) : 'Position not set') . ($showTeam ? ' &middot; ' . e($r['team']) : '') . '</small></span>'
+            . ($r['position'] ? '<span class="ri-pill k-event">' . e($r['position']) . '</span>' : '') . '</' . ($r['code'] ? 'a' : 'div') . '></div>';
+    };
+    ?>
+    <h2 class="h5 section-title mb-3"><i class="bi bi-person-lines-fill"></i> Player list</h2>
+    <?php if (!$roster): ?><p class="text-muted-ft">No players yet. Players appear here once teams in this competition have a squad or players.</p><?php else: ?>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+      <div class="sw-tabs">
+        <a class="sw-tab<?= $view === 'pos' ? ' active' : '' ?>" href="<?= $self(['t' => 'roster', 'v' => 'pos', 'tm' => $tf ?: null]) ?>"><i class="bi bi-diagram-3"></i> By position</a>
+        <a class="sw-tab<?= $view === 'team' ? ' active' : '' ?>" href="<?= $self(['t' => 'roster', 'v' => 'team', 'tm' => $tf ?: null]) ?>"><i class="bi bi-shield"></i> By team</a>
+      </div>
+      <form method="get" class="d-flex gap-2 ms-md-auto"><input type="hidden" name="c" value="<?= e((string)($cur['public_code'] ?: $cur['id'])) ?>"><input type="hidden" name="t" value="roster"><input type="hidden" name="v" value="<?= e($view) ?>">
+        <select class="form-select w-auto" name="tm" onchange="this.form.submit()" aria-label="Team"><option value="">All teams</option>
+          <?php foreach ($teamNames as $id => $n): ?><option value="<?= (int)$id ?>"<?= $tf === (int)$id ? ' selected' : '' ?>><?= e($n) ?></option><?php endforeach; ?></select>
+      </form>
+      <span class="small text-muted-ft"><?= count($shown) ?> player<?= count($shown) === 1 ? '' : 's' ?></span>
+    </div>
+    <?php if ($view === 'pos'): ?>
+      <?php foreach ($cats as $g):
+          $list = array_values(array_filter($shown, fn($r) => position_group($r['position']) === $g));
+          if (!$list) { continue; }
+          usort($list, fn($a, $b) => [$posOrder[$a['position']] ?? 99, $a['team'], $a['name']] <=> [$posOrder[$b['position']] ?? 99, $b['team'], $b['name']]); ?>
+        <h3 class="h6 section-title mt-3"><?= e($g === 'Other' ? 'Other' : $g . 's') ?> <span class="badge text-bg-secondary align-middle"><?= count($list) ?></span></h3>
+        <div class="row g-2 mb-2"><?php foreach ($list as $r) { echo $row($r, true); } ?></div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <?php $byTeam = []; foreach ($shown as $r) { $byTeam[$r['team_id']][] = $r; }
+      foreach ($byTeam as $tid => $list): ?>
+        <div class="ft-card p-3 mb-3">
+          <h3 class="h6 section-title mb-2"><?= comp_team_link($list[0]['team']) ?><?= $list[0]['group'] ? ' <span class="small text-muted-ft">&middot; ' . e($list[0]['group']) . '</span>' : '' ?> <span class="badge text-bg-secondary align-middle"><?= count($list) ?></span></h3>
+          <?php foreach ($cats as $g):
+              $gl = array_values(array_filter($list, fn($r) => position_group($r['position']) === $g)); if (!$gl) { continue; }
+              usort($gl, fn($a, $b) => [$posOrder[$a['position']] ?? 99, $a['name']] <=> [$posOrder[$b['position']] ?? 99, $b['name']]); ?>
+            <div class="small fw-semibold text-muted-ft mt-2 mb-1"><?= e($g === 'Other' ? 'Other' : $g . 's') ?> (<?= count($gl) ?>)</div>
+            <div class="row g-2"><?php foreach ($gl as $r) { echo $row($r, false); } ?></div>
+          <?php endforeach; ?>
+        </div>
+      <?php endforeach; ?>
+    <?php endif; ?>
+    <?php if (!$shown): ?><p class="text-muted-ft">No players for this team yet.</p><?php endif; ?>
     <?php endif; ?>
 
   <?php elseif ($tab === 'auction'): ?>

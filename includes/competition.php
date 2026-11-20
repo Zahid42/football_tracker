@@ -47,6 +47,46 @@ function comp_team_names(): array
     return array_values(array_unique(db()->query('SELECT name FROM teams UNION SELECT name FROM opponents ORDER BY name')->fetchAll(PDO::FETCH_COLUMN)));
 }
 
+/** Position group (Goalkeeper, Defender, Midfielder, Forward) of a position code; "Other" when unknown. */
+function position_group(?string $code): string
+{
+    foreach (POSITION_GROUPS as $g => $codes) { if (in_array((string)$code, $codes, true)) { return $g; } }
+    return 'Other';
+}
+
+/**
+ * Everyone on the teams of a competition: the team's squad plus players whose current team it is.
+ * Each row: team_id, team, group, player_id (null for a squad name without a profile), name, position, number, photo, code.
+ */
+function comp_roster(int $cid): array
+{
+    $pdo = db();
+    $teams = $pdo->prepare('SELECT ct.team_name, ct.group_name, (SELECT MIN(t.id) FROM teams t WHERE LOWER(t.name) = LOWER(ct.team_name)) AS team_id FROM comp_teams ct WHERE ct.competition_id = ? ORDER BY ct.group_name, ct.team_name');
+    $teams->execute([$cid]);
+    $sq = $pdo->prepare('SELECT sq.player_id, sq.name, sq.position, sq.shirt_number, sq.photo, p.public_code, p.is_active, p.approval_status FROM team_squad sq LEFT JOIN players p ON p.id = sq.player_id WHERE sq.team_id = ?');
+    $pl = $pdo->prepare("SELECT p.id, p.full_name, p.preferred_position, p.jersey_number, p.photo, p.public_code FROM players p WHERE p.approval_status = 'approved' AND p.is_active = 1
+        AND (p.current_team_id = ? OR EXISTS (SELECT 1 FROM player_teams pt WHERE pt.player_id = p.id AND pt.team_id = ? AND pt.is_current = 1))");
+    $out = [];
+    foreach ($teams->fetchAll() as $t) {
+        if (!$t['team_id']) { continue; }
+        $tid = (int)$t['team_id']; $seen = []; $names = []; $base = ['team_id' => $tid, 'team' => $t['team_name'], 'group' => $t['group_name']];
+        $pl->execute([$tid, $tid]);   // players with a profile first, so a squad name that is the same person is not listed twice
+        foreach ($pl->fetchAll() as $r) {
+            $seen['p' . $r['id']] = 1; $names[mb_strtolower($r['full_name'])] = 1;
+            $out[] = $base + ['player_id' => (int)$r['id'], 'name' => $r['full_name'], 'position' => $r['preferred_position'], 'number' => $r['jersey_number'], 'photo' => $r['photo'], 'code' => $r['public_code']];
+        }
+        $sq->execute([$tid]);
+        foreach ($sq->fetchAll() as $r) {
+            if ($r['player_id'] && ($r['approval_status'] !== 'approved' || !(int)$r['is_active'])) { continue; }
+            $key = $r['player_id'] ? 'p' . $r['player_id'] : 'n' . mb_strtolower($r['name']);
+            if (isset($seen[$key]) || (!$r['player_id'] && isset($names[mb_strtolower($r['name'])]))) { continue; }
+            $seen[$key] = 1;
+            $out[] = $base + ['player_id' => $r['player_id'] ? (int)$r['player_id'] : null, 'name' => $r['name'], 'position' => $r['position'], 'number' => $r['shirt_number'], 'photo' => $r['photo'], 'code' => $r['public_code']];
+        }
+    }
+    return $out;
+}
+
 /** A team's name as a link to its public profile; plain text when it is not a team with a profile (e.g. a guest opponent or BYE). */
 function comp_team_link(?string $name): string
 {
