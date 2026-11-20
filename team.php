@@ -33,12 +33,15 @@ $m->execute([$t['id']]); $ms = $m->fetchAll();
   <div class="row g-3 mb-4 align-items-start">
     <div class="col-lg-8" id="sqv-pitch"><div class="small fw-semibold text-muted-ft mb-2"><i class="bi bi-diagram-3"></i> Pitch view</div><?php try { echo team_pitch($squad, isset($_GET['pitch']) && in_array((int)$_GET['pitch'], PITCH_SIZES, true) ? (int)$_GET['pitch'] : team_pitch_size((int)$t['id'])); } catch (Throwable $e) { echo '<p class="text-muted-ft">The pitch view could not be drawn.</p>'; } ?></div>
     <div class="col-lg-4" id="sqv-list"><div class="small fw-semibold text-muted-ft mb-2"><i class="bi bi-list-ul"></i> List view</div>
-      <div class="row-list sq-list-scroll"><?php foreach ($squad as $s): ?>
-        <<?= $s['public_code'] ? 'a href="' . e(url($s['public_code'])) . '"' : 'div' ?> class="row-item squad-member">
-          <span class="sq-no"><?= $s['shirt_number'] !== null ? (int)$s['shirt_number'] : '-' ?></span>
-          <img class="sq-photo" src="<?= e(upload_url($s['photo'])) ?>" alt="">
-          <span class="ri-main"><b><?= e($s['name']) ?><?= $s['is_captain'] ? ' <span class="badge bg-warning text-dark">C</span>' : '' ?></b><small><?= e(position_name($s['position'])) ?><?= $s['notes'] ? ' &middot; ' . e($s['notes']) : '' ?></small></span>
-          <?= $s['public_code'] ? '<span class="ri-pill k-event">Profile</span>' : '' ?>
+      <div class="sq-list sq-list-scroll"><?php foreach ($squad as $s): $grp = strtolower(substr(position_group($s['position']), 0, 3)); ?>
+        <<?= $s['public_code'] ? 'a href="' . e(url($s['public_code'])) . '"' : 'div' ?> class="sq-row squad-member">
+          <span class="sq-num"><?= $s['shirt_number'] !== null ? (int)$s['shirt_number'] : '-' ?></span>
+          <img class="sq-ph" src="<?= e(upload_url($s['photo'])) ?>" alt="">
+          <span class="sq-info">
+            <span class="sq-name"><?= e($s['name']) ?><?= $s['is_captain'] ? ' <span class="sq-cap" title="Captain">C</span>' : '' ?></span>
+            <span class="sq-meta"><?php if ($s['position']): ?><span class="sq-pos g-<?= e($grp) ?>"><?= e($s['position']) ?></span> <span class="sq-posname"><?= e(position_name($s['position'])) ?></span><?php else: ?><span class="sq-posname">No position</span><?php endif; ?><?= $s['notes'] ? ' <span class="sq-note">&middot; ' . e($s['notes']) . '</span>' : '' ?></span>
+          </span>
+          <?= $s['public_code'] ? '<i class="bi bi-chevron-right sq-go"></i>' : '' ?>
         </<?= $s['public_code'] ? 'a' : 'div' ?>><?php endforeach; ?></div></div>
   </div><?php endif; ?>
 
