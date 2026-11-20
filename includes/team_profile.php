@@ -188,6 +188,10 @@ function ft_squad_ensure(): void
 {
     $pdo = db();
     ft_pitch_size_ensure();
+    if ($pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'squad_reset_v1'")->fetchColumn() !== '1' && $pdo->query("SHOW TABLES LIKE 'team_squad'")->fetch()) {
+        $pdo->exec('DELETE FROM team_squad');   // one-time, requested by the admin: every squad starts empty again (players, teams and profiles are untouched)
+        $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['squad_reset_v1', '1']);
+    }
     ft_squad_profile_backfill();
     ft_comp_teams_backfill();
     if ($pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'squad_tidy_v'")->fetchColumn() !== '1') { squad_tidy(); $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['squad_tidy_v', '1']); }
