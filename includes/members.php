@@ -91,6 +91,7 @@ function member_send_verification(int $mid): array
     $q = db()->prepare('SELECT m.*, p.full_name FROM members m LEFT JOIN players p ON p.id = m.player_id WHERE m.id = ?'); $q->execute([$mid]);
     $m = $q->fetch();
     if (!$m) { return [false, 'Account not found.']; }
+    $pcode = member_ensure_code($mid);
     $code = (string)random_int(100000, 999999);
     db()->prepare('UPDATE members SET verify_hash = ?, verify_expires = DATE_ADD(NOW(), INTERVAL 30 MINUTE), verify_tries = 0, verify_sent_at = NOW() WHERE id = ?')->execute([hash('sha256', $code), $mid]);
     $link = abs_url('verify.php?e=' . rawurlencode($m['email']) . '&c=' . $code);
@@ -100,8 +101,21 @@ function member_send_verification(int $mid): array
         'Use this code to verify your e-mail address:',
         '<b style="font-size:28px;letter-spacing:6px">' . $code . '</b>',
         'It expires in 30 minutes. Or open this link: <a href="' . e($link) . '">' . e($link) . '</a>',
+        $pcode ? 'Your player ID is <b style="font-size:20px;letter-spacing:3px">' . e($pcode) . '</b>. Keep it: you sign in with this ID and your password.' : '',
         'If you did not sign up, you can ignore this message.',
     ]);
+}
+
+/** The player ID (6-digit public code) of a member's profile; one is created when the profile has none yet. */
+function member_ensure_code(int $mid): string
+{
+    $q = db()->prepare('SELECT p.id, p.public_code FROM members m JOIN players p ON p.id = m.player_id WHERE m.id = ?'); $q->execute([$mid]);
+    $p = $q->fetch();
+    if (!$p) { return ''; }
+    if ($p['public_code']) { return (string)$p['public_code']; }
+    $c = ft_new_code();
+    db()->prepare('UPDATE players SET public_code = ? WHERE id = ?')->execute([$c, $p['id']]);
+    return $c;
 }
 
 /** Checks a code. Returns null when verified, else an error message. */
@@ -132,7 +146,8 @@ function member_send_id(int $mid, bool $welcome = false): array
 {
     $q = db()->prepare('SELECT m.email, p.full_name, p.public_code FROM members m JOIN players p ON p.id = m.player_id WHERE m.id = ?'); $q->execute([$mid]);
     $m = $q->fetch();
-    if (!$m || !$m['public_code']) { return [false, 'No player profile.']; }
+    if (!$m) { return [false, 'No player profile.']; }
+    if (!$m['public_code']) { $m['public_code'] = member_ensure_code($mid); }
     $site = setting('site_title', 'Football Tracker'); $in = abs_url('signin.php');
     return ft_mail_send($m['email'], 'Your player ID: ' . $m['public_code'], $site, [
         'Hi ' . $m['full_name'] . ',',
@@ -147,6 +162,7 @@ function member_send_approved(int $pid): void
 {
     $q = db()->prepare('SELECT m.email, p.full_name, p.public_code FROM members m JOIN players p ON p.id = m.player_id WHERE p.id = ? AND m.email_verified = 1'); $q->execute([$pid]);
     if (!($m = $q->fetch())) { return; }
+    if (!$m['public_code']) { $m['public_code'] = ft_new_code(); db()->prepare('UPDATE players SET public_code = ? WHERE id = ?')->execute([$m['public_code'], $pid]); }
     $site = setting('site_title', 'Football Tracker');
     ft_mail_send($m['email'], 'Your profile is approved', $site, [
         'Hi ' . $m['full_name'] . ',',

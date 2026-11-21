@@ -24,7 +24,7 @@ if ($open && is_post()) {
         $pdo = db();
         try {
             $pdo->beginTransaction();
-            $pdo->prepare("INSERT INTO players (full_name, email, approval_status, is_active, is_featured, registered_at) VALUES (?, ?, 'pending', 0, 0, NOW())")->execute([$v['full_name'], $chk['email']]);
+            $pdo->prepare("INSERT INTO players (full_name, email, approval_status, is_active, is_featured, registered_at, public_code) VALUES (?, ?, 'pending', 0, 0, NOW(), ?)")->execute([$v['full_name'], $chk['email'], ft_new_code()]);
             $pid = (int)$pdo->lastInsertId();
             $pdo->prepare('INSERT INTO members (player_id, email, password_hash, created_at) VALUES (?, ?, ?, NOW())')->execute([$pid, $chk['email'], password_hash($pw, PASSWORD_DEFAULT)]);
             $mid = (int)$pdo->lastInsertId();

@@ -26,9 +26,13 @@ require __DIR__ . '/includes/header.php';
 ?>
 <div class="container py-5" style="max-width:480px">
   <div class="ft-card p-4">
-  <?php if ($done): ?>
+  <?php if ($done):
+    $pc = db()->prepare('SELECT p.public_code FROM members m JOIN players p ON p.id = m.player_id WHERE m.email = ?'); $pc->execute([$email]); $pcode = (string)$pc->fetchColumn();
+    $ml = db()->prepare("SELECT ok FROM mail_log WHERE to_email = ? AND subject LIKE 'Your player ID%' ORDER BY id DESC LIMIT 1"); $ml->execute([$email]); $mailed = (string)$ml->fetchColumn() === '1'; ?>
     <h1 class="h3 mb-2"><i class="bi bi-patch-check-fill text-success"></i> E-mail verified</h1>
-    <p>We have e-mailed your <b>player ID</b> to <b><?= e($email) ?></b>. Sign in with that ID and the password you chose. You can edit your profile; it goes live after the admin approves it.</p>
+    <p class="mb-2">Your <b>player ID</b> is:</p>
+    <div class="text-center my-3"><span class="display-6 fw-bold" style="letter-spacing:6px"><?= e($pcode) ?></span></div>
+    <p><?= $mailed ? 'We have also e-mailed it to <b>' . e($email) . '</b>.' : 'We could not e-mail it right now, so please write it down.' ?> Sign in with that ID and the password you chose. You can edit your profile; it goes live after the admin approves it.</p>
     <a class="btn btn-accent" href="<?= e(url('signin.php')) ?>">Go to sign in</a>
   <?php else: ?>
     <h1 class="h3 mb-1"><i class="bi bi-envelope-check"></i> Verify your e-mail</h1>

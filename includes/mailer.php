@@ -15,7 +15,7 @@ function ft_mail_send(string $to, string $subject, string $site, array $paras): 
 {
     $html = '<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border:1px solid #ddd;border-radius:12px;overflow:hidden"><div style="background:#0f2a1d;color:#fff;padding:16px 22px;font-weight:700">' . e($site) . '</div><div style="padding:22px;color:#222;line-height:1.55">';
     $text = $site . "\n\n";
-    foreach ($paras as $p) { $html .= '<p style="margin:0 0 14px">' . $p . '</p>'; $text .= html_entity_decode(strip_tags(str_replace(['<br>', '</p>'], "\n", $p))) . "\n\n"; }
+    foreach (array_filter($paras, fn($p) => $p !== '') as $p) { $html .= '<p style="margin:0 0 14px">' . $p . '</p>'; $text .= html_entity_decode(strip_tags(str_replace(['<br>', '</p>'], "\n", $p))) . "\n\n"; }
     $html .= '</div></div>';
     [$ok, $err] = ft_smtp_send($to, $subject, $text, $html);
     try { db()->prepare('INSERT INTO mail_log (to_email, subject, ok, error, created_at) VALUES (?,?,?,?,NOW())')->execute([$to, mb_substr($subject, 0, 200), $ok ? 1 : 0, $err ? mb_substr($err, 0, 250) : null]); } catch (Throwable $e) {}
