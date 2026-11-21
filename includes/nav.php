@@ -35,6 +35,8 @@ function admin_nav(): array
         ['heading' => 'Manage'],
         ['label' => 'Players',      'href' => 'admin/players.php',      'icon' => 'bi-people', 'also' => ['profile.php', 'players-import.php']],
         ['label' => 'Approvals',    'href' => 'admin/players.php?view=pending', 'icon' => 'bi-person-check', 'badge' => 'pending'],
+        ['label' => 'Members',      'href' => 'admin/members.php',      'icon' => 'bi-person-lines-fill'],
+        ['label' => 'Requests',     'href' => 'admin/requests.php',     'icon' => 'bi-inbox', 'badge' => 'requests'],
         ['label' => 'Homepage',     'href' => 'admin/homepage.php',     'icon' => 'bi-house-gear'],
         ['label' => 'Matches',      'href' => 'admin/matches.php',      'icon' => 'bi-calendar-event', 'also' => ['match-add.php', 'match-edit.php']],
         ['label' => 'Teams',        'href' => 'admin/teams.php',        'icon' => 'bi-shield'],

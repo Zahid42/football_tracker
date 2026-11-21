@@ -41,7 +41,7 @@ require __DIR__ . '/../includes/admin_header.php';
   <div class="col-6 col-md-4 col-xl-3">
     <a class="dash-tile" href="<?= e(url($item['href'])) ?>"<?= !empty($item['external']) ? ' target="_blank" rel="noopener"' : '' ?>>
       <i class="bi <?= e($item['icon']) ?>"></i><span><?= e($item['label']) ?></span>
-      <?php if (($item['badge'] ?? '') === 'pending' && $pending): ?><b class="badge bg-danger"><?= $pending ?></b><?php endif; ?>
+      <?php if (($item['badge'] ?? '') === 'pending' && $pending): ?><b class="badge bg-danger"><?= $pending ?></b><?php endif; ?><?php if (($item['badge'] ?? '') === 'requests' && ($rc = pending_requests_count())): ?><b class="badge bg-danger"><?= $rc ?></b><?php endif; ?>
     </a>
   </div>
 <?php endforeach; if ($open) { echo '</div>'; } ?>

@@ -9,7 +9,7 @@ function ft_members_ensure(): void
 {
     $pdo = db();
     $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'members_v'")->fetchColumn();
-    if ($v === '2') { return; }
+    if ($v === '3') { return; }
     $pdo->exec("CREATE TABLE IF NOT EXISTS `members` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `player_id` INT UNSIGNED DEFAULT NULL,
         `email` VARCHAR(120) NOT NULL, `password_hash` VARCHAR(255) NOT NULL, `created_at` DATETIME NOT NULL, `last_login_at` DATETIME DEFAULT NULL,
         PRIMARY KEY (`id`), UNIQUE KEY `uq_member_email` (`email`), KEY `idx_member_player` (`player_id`),
@@ -20,7 +20,16 @@ function ft_members_ensure(): void
         $pdo->exec('UPDATE members SET email_verified = 1');   // accounts made before verification existed
     }
     $pdo->exec("CREATE TABLE IF NOT EXISTS `mail_log` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `to_email` VARCHAR(120) NOT NULL, `subject` VARCHAR(200) NOT NULL, `ok` TINYINT(1) NOT NULL, `error` VARCHAR(255) DEFAULT NULL, `created_at` DATETIME NOT NULL, PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['members_v', '2']);
+    // v3: blocking, admin note, sign-in count + sign-in history, requests for new players / teams / competitions
+    if (!$pdo->query("SHOW COLUMNS FROM members LIKE 'is_blocked'")->fetch()) {
+        $pdo->exec('ALTER TABLE members ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0, ADD COLUMN admin_note VARCHAR(500) DEFAULT NULL, ADD COLUMN login_count INT UNSIGNED NOT NULL DEFAULT 0');
+    }
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `member_logins` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `member_id` INT UNSIGNED DEFAULT NULL, `ident` VARCHAR(120) NOT NULL, `ok` TINYINT(1) NOT NULL,
+        `note` VARCHAR(120) DEFAULT NULL, `ip` VARCHAR(45) DEFAULT NULL, `agent` VARCHAR(160) DEFAULT NULL, `created_at` DATETIME NOT NULL, PRIMARY KEY (`id`), KEY `idx_ml_member` (`member_id`), KEY `idx_ml_time` (`created_at`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `member_requests` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `member_id` INT UNSIGNED NOT NULL, `kind` VARCHAR(12) NOT NULL, `title` VARCHAR(150) NOT NULL,
+        `details` TEXT DEFAULT NULL, `status` VARCHAR(10) NOT NULL DEFAULT 'pending', `admin_reply` VARCHAR(500) DEFAULT NULL, `result_id` INT UNSIGNED DEFAULT NULL, `created_at` DATETIME NOT NULL, `decided_at` DATETIME DEFAULT NULL,
+        PRIMARY KEY (`id`), KEY `idx_mr_member` (`member_id`), KEY `idx_mr_status` (`status`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')->execute(['members_v', '3']);
 }
 
 const EMAIL_TYPOS = ['gmial.com' => 'gmail.com', 'gmai.com' => 'gmail.com', 'gamil.com' => 'gmail.com', 'gmail.co' => 'gmail.com', 'gmail.con' => 'gmail.com', 'gnail.com' => 'gmail.com',
@@ -74,14 +83,91 @@ function current_member(): ?array
     if (empty($_SESSION['member_id'])) { return $m = null; }
     $q = db()->prepare('SELECT m.*, p.full_name, p.approval_status, p.public_code FROM members m LEFT JOIN players p ON p.id = m.player_id WHERE m.id = ?');
     $q->execute([(int)$_SESSION['member_id']]);
-    return $m = ($q->fetch() ?: null);
+    $m = $q->fetch() ?: null;
+    if ($m && !empty($m['is_blocked'])) { unset($_SESSION['member_id']); $m = null; }   // blocked by the admin: signed out at once
+    return $m;
 }
 
 function member_login(int $id): void
 {
     session_regenerate_id(true);
     $_SESSION['member_id'] = $id;
-    db()->prepare('UPDATE members SET last_login_at = NOW() WHERE id = ?')->execute([$id]);
+    db()->prepare('UPDATE members SET last_login_at = NOW(), login_count = login_count + 1 WHERE id = ?')->execute([$id]);
+}
+
+/** Writes one line of the sign-in history (successful or not). Never breaks the page. */
+function member_log_signin(?int $mid, string $ident, bool $ok, string $note = ''): void
+{
+    try {
+        db()->prepare('INSERT INTO member_logins (member_id, ident, ok, note, ip, agent, created_at) VALUES (?,?,?,?,?,?,NOW())')
+            ->execute([$mid, mb_substr($ident, 0, 120), $ok ? 1 : 0, $note !== '' ? mb_substr($note, 0, 120) : null, mb_substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45), mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 160)]);
+        db()->exec("DELETE FROM member_logins WHERE created_at < DATE_SUB(NOW(), INTERVAL 180 DAY)");
+    } catch (Throwable $e) { /* history is a bonus */ }
+}
+
+/** Finds the account for a sign-in name: an e-mail address or the 6-digit player ID. */
+function member_find_for_signin(string $ident): ?array
+{
+    $ident = trim($ident);
+    if (str_contains($ident, '@')) {
+        $q = db()->prepare('SELECT m.id, m.password_hash, m.email, m.email_verified, m.is_blocked FROM members m WHERE m.email = ?'); $q->execute([mb_strtolower($ident)]);
+    } else {
+        $q = db()->prepare('SELECT m.id, m.password_hash, m.email, m.email_verified, m.is_blocked FROM members m JOIN players p ON p.id = m.player_id WHERE p.public_code = ?'); $q->execute([preg_replace('/\D/', '', $ident)]);
+    }
+    return $q->fetch() ?: null;
+}
+
+/* ---------------- Requests for new players / teams / competitions ---------------- */
+
+const MEMBER_REQUEST_KINDS = ['player' => 'Player', 'team' => 'Team', 'competition' => 'Competition'];
+
+/** Details of a request are stored as JSON; this returns them as an array. */
+function request_details(array $r): array { $d = json_decode((string)($r['details'] ?? ''), true); return is_array($d) ? $d : []; }
+
+/**
+ * Creates the real record for an approved request. Returns [?int id, ?string public_code, string message].
+ * Player: approved profile (joins the chosen team's squad). Team: new team. Competition: new competition.
+ */
+function request_apply(array $r): array
+{
+    $pdo = db(); $d = request_details($r); $title = trim((string)$r['title']);
+    if ($r['kind'] === 'player') {
+        $code = ft_new_code();
+        $pdo->prepare("INSERT INTO players (full_name, preferred_position, jersey_number, date_of_birth, is_active, approval_status, public_code, registered_at) VALUES (?, ?, ?, ?, 1, 'approved', ?, NOW())")
+            ->execute([$title, in_array($d['position'] ?? '', POSITIONS, true) ? $d['position'] : null, ($d['jersey'] ?? '') !== '' ? (int)$d['jersey'] : null, ($d['dob'] ?? '') !== '' ? $d['dob'] : null, $code]);
+        $id = (int)$pdo->lastInsertId(); $msg = 'Player created.';
+        if (!empty($d['team_id']) && (int)$d['team_id'] > 0) { $res = squad_add_player($id, (int)$d['team_id']); $msg .= $res === 'added' ? ' Added to the team squad.' : ' Team added to the profile.'; }
+        return [$id, $code, $msg];
+    }
+    if ($r['kind'] === 'team') {
+        $code = ft_new_code();
+        $pdo->prepare("INSERT INTO teams (name, short_name, founded_year, description, status, public_code) VALUES (?, ?, ?, ?, 'active', ?)")
+            ->execute([$title, ($d['short_name'] ?? '') !== '' ? mb_substr((string)$d['short_name'], 0, 10) : null, ($d['founded'] ?? '') !== '' ? (int)$d['founded'] : null, ($d['note'] ?? '') !== '' ? (string)$d['note'] : null, $code]);
+        return [(int)$pdo->lastInsertId(), $code, 'Team created.'];
+    }
+    $code = ft_new_code();
+    $type = in_array($d['type'] ?? '', ['Tournament', 'League', 'Friendly', 'Training', 'Other'], true) ? $d['type'] : 'Tournament';
+    $fmt = ($d['format'] ?? '') === 'Groups' ? 'Groups' : 'League';
+    $pdo->prepare('INSERT INTO competitions (name, season_id, type, format, organizer, description, public_code) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        ->execute([$title, !empty($d['season_id']) ? (int)$d['season_id'] : null, $type, $fmt, ($d['organizer'] ?? '') !== '' ? (string)$d['organizer'] : null, ($d['note'] ?? '') !== '' ? (string)$d['note'] : null, $code]);
+    return [(int)$pdo->lastInsertId(), $code, 'Competition created.'];
+}
+
+/** E-mail the member about the decision on a request (best effort). */
+function request_notify(array $r, string $outcome, ?string $code = null): void
+{
+    $q = db()->prepare('SELECT m.email, p.full_name FROM members m LEFT JOIN players p ON p.id = m.player_id WHERE m.id = ?'); $q->execute([$r['member_id']]);
+    if (!($m = $q->fetch())) { return; }
+    $kind = strtolower(MEMBER_REQUEST_KINDS[$r['kind']] ?? $r['kind']); $site = setting('site_title', 'Football Tracker');
+    $paras = ['Hi ' . ($m['full_name'] ?: 'there') . ',', 'Your request to add the ' . $kind . ' <b>' . e((string)$r['title']) . '</b> was <b>' . ($outcome === 'approved' ? 'approved' : 'not approved') . '</b>.'];
+    if ($outcome === 'approved' && $code) { $paras[] = 'Its ID is <b>' . e($code) . '</b>. It is now on the site.'; }
+    if (!empty($r['admin_reply'])) { $paras[] = 'Message from the admin: ' . e((string)$r['admin_reply']); }
+    ft_mail_send($m['email'], 'Your ' . $kind . ' request: ' . ($outcome === 'approved' ? 'approved' : 'not approved'), $site, $paras);
+}
+
+function pending_requests_count(): int
+{
+    try { return (int)db()->query("SELECT COUNT(*) FROM member_requests WHERE status = 'pending'")->fetchColumn(); } catch (Throwable $e) { return 0; }
 }
 
 

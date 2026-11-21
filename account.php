@@ -60,6 +60,11 @@ require __DIR__ . '/includes/header.php';
       <?php elseif ($status === 'rejected'): ?><span class="badge bg-danger">Not approved</span>
       <?php else: ?><span class="badge bg-warning text-dark">Waiting for admin approval</span><?php endif; ?></div>
   </div>
+  <?php $rq = db()->prepare("SELECT COUNT(*) total, SUM(status = 'pending') pend FROM member_requests WHERE member_id = ?"); $rq->execute([(int)$m['id']]); $rq = $rq->fetch(); ?>
+  <a class="ft-card p-3 mb-3 d-flex flex-wrap align-items-center gap-3 text-decoration-none" href="<?= e(url('requests.php')) ?>" style="color:inherit">
+    <i class="bi bi-send-plus fs-3" style="color:var(--accent)"></i><div><b>Request a player, team or competition</b><div class="small text-muted-ft">Something missing on the site? Ask the admin to add it.</div></div>
+    <span class="ms-auto"><?= (int)$rq['pend'] ? '<span class="badge bg-warning text-dark">' . (int)$rq['pend'] . ' waiting</span> ' : '' ?><span class="small text-muted-ft"><?= (int)$rq['total'] ?> sent</span> <i class="bi bi-chevron-right"></i></span>
+  </a>
   <?php if ($pid): ?>
   <form method="post" enctype="multipart/form-data" class="ft-card p-4 mb-3">
     <?= csrf_field() ?><input type="hidden" name="op" value="profile">

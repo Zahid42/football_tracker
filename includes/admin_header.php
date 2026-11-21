@@ -59,7 +59,7 @@ $activePage = basename($_SERVER['SCRIPT_NAME']);
         <div class="sidebar-heading"><?= e($item['heading']) ?></div>
         <?php continue; ?>
       <?php endif; ?>
-      <a class="sidebar-link <?= admin_nav_active($item) ? 'active' : '' ?>" href="<?= e(url($item['href'])) ?>"<?= !empty($item['external']) ? ' target="_blank" rel="noopener"' : '' ?>><i class="bi <?= e($item['icon']) ?>"></i> <?= e($item['label']) ?><?php if (($item['badge'] ?? '') === 'pending' && ($pc = count(pending_players()))): ?> <span class="badge bg-danger ms-1"><?= $pc ?></span><?php endif; ?></a>
+      <a class="sidebar-link <?= admin_nav_active($item) ? 'active' : '' ?>" href="<?= e(url($item['href'])) ?>"<?= !empty($item['external']) ? ' target="_blank" rel="noopener"' : '' ?>><i class="bi <?= e($item['icon']) ?>"></i> <?= e($item['label']) ?><?php if (($item['badge'] ?? '') === 'pending' && ($pc = count(pending_players()))): ?> <span class="badge bg-danger ms-1"><?= $pc ?></span><?php endif; ?><?php if (($item['badge'] ?? '') === 'requests' && ($pc = pending_requests_count())): ?> <span class="badge bg-danger ms-1"><?= $pc ?></span><?php endif; ?></a>
     <?php endforeach; ?>
     <a class="sidebar-link" href="<?= e(url('index.php')) ?>" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> View Public Site</a>
     <form method="post" action="<?= e(url('admin/logout.php')) ?>" class="mt-2">
